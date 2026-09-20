@@ -100,25 +100,25 @@ class AppSidebar extends StatelessWidget {
           const SizedBox(height: 12),
 
           _SidebarItem(
-            icon: Icons.image_search_outlined,
-            label: 'Classify',
-            isSelected: selectedIndex == 0,
-            onTap: () => onMenuSelected(0),
-          ),
+  icon: Icons.image_search_outlined,
+  label: 'Classify',
+  isSelected: selectedIndex == 0,
+  onTap: () => onMenuSelected(0),
+),
 
-          _SidebarItem(
-            icon: Icons.menu_book_outlined,
-            label: 'Seaweed Guide',
-            isSelected: selectedIndex == 1,
-            onTap: () => onMenuSelected(1),
-          ),
+_SidebarItem(
+  icon: Icons.menu_book_outlined,
+  label: 'Seaweed Guide',
+  isSelected: selectedIndex == 1,
+  onTap: () => onMenuSelected(1),
+),
 
-          _SidebarItem(
-            icon: Icons.history,
-            label: 'History',
-            isSelected: selectedIndex == 2,
-            onTap: () => onMenuSelected(2),
-          ),
+_SidebarItem(
+  icon: Icons.history,
+  label: 'History',
+  isSelected: selectedIndex == 2,
+  onTap: () => onMenuSelected(2),
+),
 
           const SizedBox(height: 28),
 

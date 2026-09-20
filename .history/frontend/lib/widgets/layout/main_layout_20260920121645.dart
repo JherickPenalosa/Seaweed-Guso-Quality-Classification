@@ -55,21 +55,21 @@ class _MainLayoutState extends State<MainLayout> {
   }
 
   String _currentPageTitle() {
-    switch (_selectedIndex) {
-      case 1:
-        return 'Seaweed Guide';
+  switch (_selectedIndex) {
+    case 1:
+      return 'Seaweed Guide';
 
-      case 2:
-        return 'History';
+    case 2:
+      return 'History';
 
-      case 3:
-        return 'Settings';
+    case 3:
+      return 'Settings';
 
-      case 0:
-      default:
-        return 'Classify';
-    }
+    case 0:
+    default:
+      return 'Classify';
   }
+}
 
   @override
   Widget build(BuildContext context) {

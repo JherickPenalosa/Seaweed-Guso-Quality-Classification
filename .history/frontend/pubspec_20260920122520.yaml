@@ -62,10 +62,8 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/seaweeds/
-    - assets/icons/
-    - assets/logos/
-
+    - assets/images/caulerpa_lentillifera.jpg
+    - assets/images/caulerpa_sertulariodes.jpg
 
 
   # To add assets to your application, add an assets section, like this:

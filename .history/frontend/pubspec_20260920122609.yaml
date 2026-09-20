@@ -62,9 +62,10 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/seaweeds/
-    - assets/icons/
-    - assets/logos/
+    - assets/images/caulerpa_lentillifera.jpg
+    - assets/images/caulerpa_sertularioides.jpg
+    - assets/images/kappaphycus.jpg
+    
 
 
 

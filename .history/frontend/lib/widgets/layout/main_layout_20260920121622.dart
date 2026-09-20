@@ -38,31 +38,28 @@ class _MainLayoutState extends State<MainLayout> {
   }
 
   Widget _buildCurrentPage() {
-    switch (_selectedIndex) {
-      case 1:
-        return const SeaweedGuideScreen();
+  switch (_selectedIndex) {
+    case 1:
+      return const SeaweedGuideScreen();
 
-      case 2:
-        return const HistoryScreen();
+    case 2:
+      return const HistoryScreen();
 
-      case 3:
-        return const SettingsScreen();
+    case 3:
+      return const SettingsScreen();
 
-      case 0:
-      default:
-        return const ClassificationScreen();
-    }
+    case 0:
+    default:
+      return const ClassificationScreen();
   }
+}
 
   String _currentPageTitle() {
     switch (_selectedIndex) {
       case 1:
-        return 'Seaweed Guide';
-
-      case 2:
         return 'History';
 
-      case 3:
+      case 2:
         return 'Settings';
 
       case 0:

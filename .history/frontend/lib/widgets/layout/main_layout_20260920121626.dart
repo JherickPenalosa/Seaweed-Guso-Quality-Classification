@@ -57,12 +57,9 @@ class _MainLayoutState extends State<MainLayout> {
   String _currentPageTitle() {
     switch (_selectedIndex) {
       case 1:
-        return 'Seaweed Guide';
-
-      case 2:
         return 'History';
 
-      case 3:
+      case 2:
         return 'Settings';
 
       case 0:

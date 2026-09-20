@@ -21,9 +21,6 @@ class GusoApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => SettingsProvider(),
         ),
-        ChangeNotifierProvider(
-          create: (_) => SeaweedLanguageProvider(),
-        ),
       ],
       child: MaterialApp(
         title: 'gUSo',

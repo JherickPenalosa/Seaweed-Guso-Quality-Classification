@@ -62,7 +62,7 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/seaweeds/
+    - assets/images/seaweed/
     - assets/icons/
     - assets/logos/
 
