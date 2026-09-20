@@ -226,55 +226,55 @@ class _ClassificationScreenState
             ),
             
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(
-                  Icons.image_search_outlined,
-                  color: AppColors.primary,
-                  size: 32,
-                ),
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    const Icon(
+      Icons.image_search_outlined,
+      color: AppColors.primary,
+      size: 32,
+    ),
 
-                const SizedBox(width: 16),
+    const SizedBox(width: 16),
 
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Classify Guso Quality',
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      Text(
-                        _isAnalyzing
-                            ? 'Analyzing the uploaded Guso image. '
-                                'Please wait while the system processes the image.'
-                            : _hasResult
-                                ? 'Classification completed successfully. '
-                                    'Review the classification result and observed characteristics below.'
-                                : _hasImage
-                                    ? 'Image ready for classification. '
-                                        'Review the selected image, then press Classify.'
-                                    : 'Upload a clear image of Guso seaweed to begin classification. '
-                                        'For better results, use an image with good lighting '
-                                        'and minimal background obstruction.',
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 14,
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+    Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Classify Guso Quality',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
             ),
+          ),
+
+          const SizedBox(height: 8),
+
+          Text(
+            _isAnalyzing
+                ? 'Analyzing the uploaded Guso image. '
+                    'Please wait while the system processes the image.'
+                : _hasResult
+                    ? 'Classification completed successfully. '
+                        'Review the classification result and observed characteristics below.'
+                    : _hasImage
+                        ? 'Image ready for classification. '
+                            'Review the selected image, then press Classify.'
+                        : 'Upload a clear image of Guso seaweed to begin classification. '
+                            'For better results, use an image with good lighting '
+                            'and minimal background obstruction.',
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    ),
+  ],
+),
           ),
 
           if (_errorMessage != null) ...[

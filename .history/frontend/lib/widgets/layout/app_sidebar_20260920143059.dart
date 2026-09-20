@@ -208,8 +208,8 @@ class AppSidebar extends StatelessWidget {
           _SidebarItem(
             icon: Icons.settings_outlined,
             label: 'Settings',
-            isSelected: selectedIndex == 3,
-            onTap: () => onMenuSelected(3),
+            isSelected: selectedIndex == 2,
+            onTap: () => onMenuSelected(2),
           ),
 
           const SizedBox(height: 24),
