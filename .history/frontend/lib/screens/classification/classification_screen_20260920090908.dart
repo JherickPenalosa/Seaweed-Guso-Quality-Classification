@@ -157,53 +157,53 @@ class _ClassificationScreenState
   }
 
   Future<void> _classifyImage() async {
-    if (!_hasImage || _isAnalyzing) {
-      return;
-    }
+  if (!_hasImage || _isAnalyzing) {
+    return;
+  }
 
-    final image = _selectedImage;
+  final image = _selectedImage;
 
-    if (image == null) {
+  if (image == null) {
+    return;
+  }
+
+  setState(() {
+    _isAnalyzing = true;
+    _result = null;
+    _errorMessage = null;
+  });
+
+  try {
+    final result =
+        await _classificationService.classifyImage(
+      image,
+    );
+
+    if (!mounted) {
       return;
     }
 
     setState(() {
-      _isAnalyzing = true;
-      _result = null;
-      _errorMessage = null;
+      _result = result;
     });
+  } catch (e) {
+    if (!mounted) {
+      return;
+    }
 
-    try {
-      final result =
-          await _classificationService.classifyImage(
-        image,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
+    setState(() {
+      _errorMessage =
+          'Unable to classify this image. '
+          'Please try again or upload a clearer image.';
+    });
+  } finally {
+    if (mounted) {
       setState(() {
-        _result = result;
+        _isAnalyzing = false;
       });
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _errorMessage =
-            'Unable to classify this image. '
-            'Please try again or upload a clearer image.';
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isAnalyzing = false;
-        });
-      }
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {

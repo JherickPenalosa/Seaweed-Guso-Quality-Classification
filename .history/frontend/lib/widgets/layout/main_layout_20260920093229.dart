@@ -134,26 +134,12 @@ class _MainLayoutState extends State<MainLayout> {
         titleSpacing: 4,
         title: Row(
           children: [
-            RichText(
-              text: const TextSpan(
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
-                children: [
-                  TextSpan(
-                    text: 'g',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  TextSpan(
-                    text: 'US',
-                    style: TextStyle(color: AppColors.primary),
-                  ),
-                  TextSpan(
-                    text: 'o',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ],
+            const Text(
+              'gUSos',
+              style: TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
               ),
             ),
 

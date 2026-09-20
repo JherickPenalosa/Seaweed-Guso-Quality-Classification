@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../../app/theme.dart';
+import 'package:provider/provider.dart';
+
 import '../../providers/settings_provider.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -20,10 +21,63 @@ class SettingsScreen extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          _buildDisplaySettings(
-            context,
-            settings,
-          ),
+          Widget _buildDisplaySettings(
+              BuildContext context,
+              SettingsProvider settings,
+            ) {
+              return _SettingsSection(
+                title: 'Result Display',
+                children: [
+                  SwitchListTile(
+                    value: settings.showConfidence,
+                    onChanged: (value) {
+                      context
+                          .read<SettingsProvider>()
+                          .setShowConfidence(value);
+                    },
+                    activeColor: AppColors.primary,
+                    title: const Text(
+                      'Show Confidence',
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'Display the model confidence percentage in classification results.',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+
+                  const Divider(),
+
+                  SwitchListTile(
+                    value: settings.showImageQuality,
+                    onChanged: (value) {
+                      context
+                          .read<SettingsProvider>()
+                          .setShowImageQuality(value);
+                    },
+                    activeColor: AppColors.primary,
+                    title: const Text(
+                      'Show Image Quality',
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: const Text(
+                      'Display whether the uploaded image is clear or may affect classification quality.',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
 
           const SizedBox(height: 24),
 
@@ -31,6 +85,37 @@ class SettingsScreen extends StatelessWidget {
             context,
             settings,
           ),
+
+          const SizedBox(height: 24),
+
+          _buildAboutSection(),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool _showConfidence = true;
+  bool _showImageQuality = true;
+  bool _confirmBeforeDiscard = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeader(),
+
+          const SizedBox(height: 24),
+
+          _buildDisplaySettings(),
+
+          const SizedBox(height: 24),
+
+          _buildClassificationSettings(),
 
           const SizedBox(height: 24),
 
@@ -94,19 +179,16 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDisplaySettings(
-    BuildContext context,
-    SettingsProvider settings,
-  ) {
+  Widget _buildDisplaySettings() {
     return _SettingsSection(
       title: 'Result Display',
       children: [
         SwitchListTile(
-          value: settings.showConfidence,
+          value: _showConfidence,
           onChanged: (value) {
-            context
-                .read<SettingsProvider>()
-                .setShowConfidence(value);
+            setState(() {
+              _showConfidence = value;
+            });
           },
           activeThumbColor: AppColors.primary,
           title: const Text(
@@ -127,11 +209,11 @@ class SettingsScreen extends StatelessWidget {
         const Divider(),
 
         SwitchListTile(
-          value: settings.showImageQuality,
+          value: _showImageQuality,
           onChanged: (value) {
-            context
-                .read<SettingsProvider>()
-                .setShowImageQuality(value);
+            setState(() {
+              _showImageQuality = value;
+            });
           },
           activeThumbColor: AppColors.primary,
           title: const Text(
@@ -152,19 +234,16 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildClassificationSettings(
-    BuildContext context,
-    SettingsProvider settings,
-  ) {
+  Widget _buildClassificationSettings() {
     return _SettingsSection(
       title: 'Classification',
       children: [
         SwitchListTile(
-          value: settings.confirmBeforeDiscard,
+          value: _confirmBeforeDiscard,
           onChanged: (value) {
-            context
-                .read<SettingsProvider>()
-                .setConfirmBeforeDiscard(value);
+            setState(() {
+              _confirmBeforeDiscard = value;
+            });
           },
           activeThumbColor: AppColors.primary,
           title: const Text(
@@ -236,7 +315,9 @@ class SettingsScreen extends StatelessWidget {
             ),
             decoration: BoxDecoration(
               color: AppColors.primaryDark,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(
+                20,
+              ),
             ),
             child: const Text(
               'ACTIVE',

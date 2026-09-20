@@ -17,8 +17,6 @@ class ClassificationSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final settings = context.watch<SettingsProvider>();
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -54,27 +52,22 @@ class ClassificationSummary extends StatelessWidget {
                     '${result.qualityClass} — ${result.qualityLabel}',
                 icon: Icons.grade_outlined,
               ),
-
               _ResultCard(
                 title: 'Freshness',
                 value: result.freshnessLevel,
                 icon: Icons.eco_outlined,
               ),
-
-              if (settings.showConfidence)
-                _ResultCard(
-                  title: 'Confidence',
-                  value:
-                      '${result.confidence.toStringAsFixed(1)}%',
-                  icon: Icons.analytics_outlined,
-                ),
-
-              if (settings.showImageQuality)
-                _ResultCard(
-                  title: 'Image Quality',
-                  value: result.imageQuality,
-                  icon: Icons.image_outlined,
-                ),
+              _ResultCard(
+                title: 'Confidence',
+                value:
+                    '${result.confidence.toStringAsFixed(1)}%',
+                icon: Icons.analytics_outlined,
+              ),
+              _ResultCard(
+                title: 'Image Quality',
+                value: result.imageQuality,
+                icon: Icons.image_outlined,
+              ),
             ],
           ),
 

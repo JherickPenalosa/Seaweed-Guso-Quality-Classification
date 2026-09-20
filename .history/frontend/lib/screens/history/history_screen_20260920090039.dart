@@ -162,7 +162,7 @@ class _HistoryList extends StatelessWidget {
                 vertical: 4,
               ),
               itemCount: records.length,
-              separatorBuilder: (_, _) =>
+              separatorBuilder: (_, __) =>
                   const SizedBox(width: 8),
               itemBuilder: (context, index) {
                 final record = records[index];
@@ -195,7 +195,7 @@ class _HistoryList extends StatelessWidget {
                 vertical: 4,
               ),
               itemCount: records.length,
-              separatorBuilder: (_, _) =>
+              separatorBuilder: (_, __) =>
                   const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final record = records[index];

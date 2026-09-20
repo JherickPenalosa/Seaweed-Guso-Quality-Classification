@@ -1,16 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../../app/theme.dart';
+import 'package:provider/provider.dart';
+
 import '../../providers/settings_provider.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final settings = context.watch<SettingsProvider>();
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
 
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool _showConfidence = true;
+  bool _showImageQuality = true;
+  bool _confirmBeforeDiscard = true;
+
+  @override
+  Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(28),
       child: Column(
@@ -20,17 +28,11 @@ class SettingsScreen extends StatelessWidget {
 
           const SizedBox(height: 24),
 
-          _buildDisplaySettings(
-            context,
-            settings,
-          ),
+          _buildDisplaySettings(),
 
           const SizedBox(height: 24),
 
-          _buildClassificationSettings(
-            context,
-            settings,
-          ),
+          _buildClassificationSettings(),
 
           const SizedBox(height: 24),
 
@@ -94,19 +96,16 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDisplaySettings(
-    BuildContext context,
-    SettingsProvider settings,
-  ) {
+  Widget _buildDisplaySettings() {
     return _SettingsSection(
       title: 'Result Display',
       children: [
         SwitchListTile(
-          value: settings.showConfidence,
+          value: _showConfidence,
           onChanged: (value) {
-            context
-                .read<SettingsProvider>()
-                .setShowConfidence(value);
+            setState(() {
+              _showConfidence = value;
+            });
           },
           activeThumbColor: AppColors.primary,
           title: const Text(
@@ -127,11 +126,11 @@ class SettingsScreen extends StatelessWidget {
         const Divider(),
 
         SwitchListTile(
-          value: settings.showImageQuality,
+          value: _showImageQuality,
           onChanged: (value) {
-            context
-                .read<SettingsProvider>()
-                .setShowImageQuality(value);
+            setState(() {
+              _showImageQuality = value;
+            });
           },
           activeThumbColor: AppColors.primary,
           title: const Text(
@@ -152,19 +151,16 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildClassificationSettings(
-    BuildContext context,
-    SettingsProvider settings,
-  ) {
+  Widget _buildClassificationSettings() {
     return _SettingsSection(
       title: 'Classification',
       children: [
         SwitchListTile(
-          value: settings.confirmBeforeDiscard,
+          value: _confirmBeforeDiscard,
           onChanged: (value) {
-            context
-                .read<SettingsProvider>()
-                .setConfirmBeforeDiscard(value);
+            setState(() {
+              _confirmBeforeDiscard = value;
+            });
           },
           activeThumbColor: AppColors.primary,
           title: const Text(
@@ -236,7 +232,9 @@ class SettingsScreen extends StatelessWidget {
             ),
             decoration: BoxDecoration(
               color: AppColors.primaryDark,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(
+                20,
+              ),
             ),
             child: const Text(
               'ACTIVE',

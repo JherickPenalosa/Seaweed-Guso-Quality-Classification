@@ -143,7 +143,7 @@ class _MainLayoutState extends State<MainLayout> {
                 children: [
                   TextSpan(
                     text: 'g',
-                    style: TextStyle(color: Colors.white),
+                    style: TextStyle(color: AppColors.textPrimary),
                   ),
                   TextSpan(
                     text: 'US',
@@ -151,7 +151,7 @@ class _MainLayoutState extends State<MainLayout> {
                   ),
                   TextSpan(
                     text: 'o',
-                    style: TextStyle(color: Colors.white),
+                    style: TextStyle(color: AppColors.textPrimary),
                   ),
                 ],
               ),

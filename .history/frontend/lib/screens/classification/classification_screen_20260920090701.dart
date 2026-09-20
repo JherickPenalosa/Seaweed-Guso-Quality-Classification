@@ -29,10 +29,6 @@ class ClassificationScreen extends StatefulWidget {
 
 class _ClassificationScreenState
     extends State<ClassificationScreen> {
-  
-  final ClassificationService _classificationService =
-    const ClassificationService();
-
   SelectedImage? _selectedImage;
 
   bool _isAnalyzing = false;
@@ -161,12 +157,6 @@ class _ClassificationScreenState
       return;
     }
 
-    final image = _selectedImage;
-
-    if (image == null) {
-      return;
-    }
-
     setState(() {
       _isAnalyzing = true;
       _result = null;
@@ -174,9 +164,10 @@ class _ClassificationScreenState
     });
 
     try {
-      final result =
-          await _classificationService.classifyImage(
-        image,
+      // Temporary frontend simulation.
+      // This will later be replaced by the real backend API call.
+      await Future.delayed(
+        const Duration(seconds: 3),
       );
 
       if (!mounted) {
@@ -184,7 +175,7 @@ class _ClassificationScreenState
       }
 
       setState(() {
-        _result = result;
+        _result = ClassificationResult.mock();
       });
     } catch (e) {
       if (!mounted) {

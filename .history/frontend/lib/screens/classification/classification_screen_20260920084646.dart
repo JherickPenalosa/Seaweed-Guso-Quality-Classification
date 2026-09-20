@@ -17,7 +17,6 @@ import '../../providers/classification_provider.dart';
 
 import '../../providers/settings_provider.dart';
 import '../../widgets/common/error_message.dart';
-import '../../services/classification_service.dart';
 
 class ClassificationScreen extends StatefulWidget {
   const ClassificationScreen({super.key});
@@ -29,10 +28,6 @@ class ClassificationScreen extends StatefulWidget {
 
 class _ClassificationScreenState
     extends State<ClassificationScreen> {
-  
-  final ClassificationService _classificationService =
-    const ClassificationService();
-
   SelectedImage? _selectedImage;
 
   bool _isAnalyzing = false;
@@ -48,12 +43,7 @@ class _ClassificationScreenState
       _selectedImage = image;
       _result = null;
       _isSaved = false;
-      _errorMessage = null;
     });
-
-    context
-        .read<ClassificationProvider>()
-        .clearSelectedRecord();
   }
 
   void _uploadNext() {
@@ -106,12 +96,7 @@ class _ClassificationScreenState
       _result = null;
       _isSaved = false;
       _isAnalyzing = false;
-      _errorMessage = null;
     });
-
-    context
-        .read<ClassificationProvider>()
-        .clearSelectedRecord();
   }
 
   Future<void> _showUnsavedWarning() async {
@@ -161,48 +146,25 @@ class _ClassificationScreenState
       return;
     }
 
-    final image = _selectedImage;
+    setState(() {
+      _isAnalyzing = true;
+      _result = null;
+    });
 
-    if (image == null) {
+    // Temporary frontend simulation.
+    // Later this will become the real backend request.
+    await Future.delayed(
+      const Duration(seconds: 3),
+    );
+
+    if (!mounted) {
       return;
     }
 
     setState(() {
-      _isAnalyzing = true;
-      _result = null;
-      _errorMessage = null;
+      _isAnalyzing = false;
+      _result = ClassificationResult.mock();
     });
-
-    try {
-      final result =
-          await _classificationService.classifyImage(
-        image,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _result = result;
-      });
-    } catch (e) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _errorMessage =
-            'Unable to classify this image. '
-            'Please try again or upload a clearer image.';
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isAnalyzing = false;
-        });
-      }
-    }
   }
 
   @override
@@ -224,7 +186,6 @@ class _ClassificationScreenState
                 width: 1.5,
               ),
             ),
-            
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -255,19 +216,6 @@ class _ClassificationScreenState
               ],
             ),
           ),
-
-          if (_errorMessage != null) ...[
-            const SizedBox(height: 16),
-
-            ErrorMessage(
-              message: _errorMessage!,
-              onDismiss: () {
-                setState(() {
-                  _errorMessage = null;
-                });
-              },
-            ),
-          ],
 
           const SizedBox(height: 24),
 
