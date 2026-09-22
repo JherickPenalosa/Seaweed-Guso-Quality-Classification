@@ -263,7 +263,7 @@ class _SeaweedGuideScreenState
                     ? 450
                     : columnCount == 2
                         ? 440
-                        : 430,
+                        : 410,
           ),
           itemBuilder: (context, index) {
             final seaweed = seaweeds[index];
