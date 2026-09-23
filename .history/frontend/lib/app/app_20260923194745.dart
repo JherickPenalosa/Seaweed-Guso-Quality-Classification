@@ -31,7 +31,7 @@ class GusoApp extends StatelessWidget {
         title: 'GUSO',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.darkTheme,
-        home: const LandingScreen(),
+        home: const HomeScreen(),
       ),
     );
   }

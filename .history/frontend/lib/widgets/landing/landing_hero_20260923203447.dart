@@ -1,0 +1,443 @@
+import 'package:flutter/material.dart';
+
+import '../../app/theme.dart';
+import 'landing_login_form.dart';
+
+class LandingHero extends StatelessWidget {
+  const LandingHero({
+    super.key,
+    required this.desktopBreakpoint,
+    required this.mobileBreakpoint,
+    required this.maxContentWidth,
+    required this.onGetStartedPressed,
+    required this.onExploreGuidePressed,
+    required this.showLogin,
+    required this.onLoginSubmitted,
+    required this.onLoginBackPressed,
+  });
+
+  final double desktopBreakpoint;
+  final double mobileBreakpoint;
+  final double maxContentWidth;
+
+  final VoidCallback onGetStartedPressed;
+  final VoidCallback onExploreGuidePressed;
+
+  final bool showLogin;
+
+  final void Function(
+    String identifier,
+    String password,
+  ) onLoginSubmitted;
+
+  final VoidCallback onLoginBackPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+
+        final isDesktop = width >= desktopBreakpoint;
+        final isMobile = width < mobileBreakpoint;
+
+        final horizontalPadding = isDesktop
+            ? 64.0
+            : isMobile
+                ? 20.0
+                : 36.0;
+
+        final verticalPadding = isMobile ? 54.0 : 82.0;
+
+        return Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: maxContentWidth,
+            ),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                verticalPadding,
+                horizontalPadding,
+                isMobile ? 70 : 110,
+              ),
+              child: isDesktop
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          flex: 11,
+                          child: _HeroContent(
+                            onGetStartedPressed:
+                                onGetStartedPressed,
+                            onExploreGuidePressed:
+                                onExploreGuidePressed,
+                          ),
+                        ),
+                        const SizedBox(width: 70),
+                        Expanded(
+                          flex: 9,
+                          child: _HeroVisual(
+                            compact: false,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _HeroContent(
+                          onGetStartedPressed:
+                              onGetStartedPressed,
+                          onExploreGuidePressed:
+                              onExploreGuidePressed,
+                        ),
+                        SizedBox(
+                          height: isMobile ? 48 : 64,
+                        ),
+                        _HeroVisual(
+                          compact: isMobile,
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _HeroContent extends StatelessWidget {
+  const _HeroContent({
+    required this.onGetStartedPressed,
+    required this.onExploreGuidePressed,
+  });
+
+  final VoidCallback onGetStartedPressed;
+  final VoidCallback onExploreGuidePressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth;
+
+        double headlineSize;
+
+        if (availableWidth >= 650) {
+          headlineSize = 64;
+        } else if (availableWidth >= 450) {
+          headlineSize = 50;
+        } else {
+          headlineSize = 40;
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(
+                  AppRadius.extraLarge,
+                ),
+                border: Border.all(
+                  color: AppColors.borderPrimary.withValues(
+                    alpha: 0.45,
+                  ),
+                ),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.eco_outlined,
+                    color: AppColors.primary,
+                    size: 18,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'AI-POWERED SEAWEED ANALYSIS',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            Text.rich(
+              TextSpan(
+                children: [
+                  const TextSpan(
+                    text: 'Know Your Guso.\n',
+                  ),
+                  const TextSpan(
+                    text: 'Understand Its Quality.',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: headlineSize,
+                height: 1.04,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -1.8,
+              ),
+            ),
+
+            const SizedBox(height: 26),
+
+            ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: 650,
+              ),
+              child: const Text(
+                'Upload an image of seaweed and receive structured insights '
+                'about its quality, freshness, image condition, and '
+                'observable characteristics.',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 18,
+                  height: 1.65,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 36),
+
+            Wrap(
+              spacing: 14,
+              runSpacing: 14,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: onGetStartedPressed,
+                  icon: const Icon(
+                    Icons.arrow_forward_rounded,
+                  ),
+                  label: const Text(
+                    'GET STARTED',
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: onExploreGuidePressed,
+                  icon: const Icon(
+                    Icons.menu_book_outlined,
+                  ),
+                  label: const Text(
+                    'EXPLORE SEAWEED GUIDE',
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 34),
+
+            const Wrap(
+              spacing: 28,
+              runSpacing: 16,
+              children: [
+                _HeroMiniFeature(
+                  icon: Icons.photo_camera_outlined,
+                  label: 'Image-based analysis',
+                ),
+                _HeroMiniFeature(
+                  icon: Icons.spa_outlined,
+                  label: 'Quality & freshness',
+                ),
+                _HeroMiniFeature(
+                  icon: Icons.science_outlined,
+                  label: 'Research-oriented',
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _HeroMiniFeature extends StatelessWidget {
+  const _HeroMiniFeature({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          color: AppColors.primary,
+          size: 19,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 14,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HeroVisual extends StatelessWidget {
+  const _HeroVisual({
+    required this.compact,
+  });
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageHeight = compact ? 420.0 : 520.0;
+
+    return SizedBox(
+      height: imageHeight,
+      width: double.infinity,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(
+            AppRadius.extraLarge,
+          ),
+          border: Border.all(
+            color: AppColors.borderPrimary,
+            width: 1.5,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(
+            AppRadius.extraLarge - 2,
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(
+                'images/landing_sample_result.png',
+                fit: BoxFit.cover,
+                alignment: Alignment.topCenter,
+                errorBuilder: (
+                  context,
+                  error,
+                  stackTrace,
+                ) {
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment:
+                          MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.image_not_supported_outlined,
+                          color: AppColors.textMuted,
+                          size: 52,
+                        ),
+                        SizedBox(height: 12),
+                        Text(
+                          'Sample result image not available',
+                          style: TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
+              const Positioned.fill(
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Color(0x11001000),
+                          Color(0x66001000),
+                        ],
+                        stops: [
+                          0.0,
+                          0.68,
+                          1.0,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              Positioned(
+                left: compact ? 16 : 22,
+                right: compact ? 16 : 22,
+                bottom: compact ? 16 : 22,
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 14 : 18,
+                    vertical: compact ? 12 : 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceDark.withValues(
+                      alpha: 0.94,
+                    ),
+                    borderRadius: BorderRadius.circular(
+                      AppRadius.large,
+                    ),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(
+                        alpha: 0.45,
+                      ),
+                    ),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle_outline_rounded,
+                        color: AppColors.primary,
+                        size: 22,
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+  flex: 9,
+  child: _HeroPanel(
+    compact: false,
+    showLogin: showLogin,
+    onLoginSubmitted: onLoginSubmitted,
+    onLoginBackPressed: onLoginBackPressed,
+  ),
+),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

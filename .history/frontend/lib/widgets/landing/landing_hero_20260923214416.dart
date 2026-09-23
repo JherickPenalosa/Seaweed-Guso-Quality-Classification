@@ -439,7 +439,7 @@ class _HeroPanel extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               ...previousChildren,
-              ?currentChild,
+              currentChild?,
             ],
           );
         },

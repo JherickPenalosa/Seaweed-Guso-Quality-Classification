@@ -199,48 +199,26 @@ class _LoginButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return ElevatedButton(
       onPressed: onPressed,
-      style: ButtonStyle(
-        elevation: const WidgetStatePropertyAll(0),
-
-        backgroundColor:
-            WidgetStateProperty.resolveWith<Color>(
-          (states) {
-            if (states.contains(WidgetState.hovered)) {
-              return Colors.white;
-            }
-
-            return AppColors.primary;
-          },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: WidgetStateProperty.resolveWith<Color?>(
+          (states) => states.contains(WidgetState.hovered)
+              ? Colors.white
+              : AppColors.primary,
         ),
-
-        foregroundColor:
-            const WidgetStatePropertyAll(
-          Colors.black,
+        foregroundColor: Colors.black,
+        elevation: 0,
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 20 : 28,
+          vertical: 14,
         ),
-
-        padding:
-            WidgetStatePropertyAll(
-          EdgeInsets.symmetric(
-            horizontal: compact ? 20 : 28,
-            vertical: 14,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(
+            AppRadius.medium,
           ),
         ),
-
-        shape:
-            WidgetStatePropertyAll(
-          RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(
-              AppRadius.medium,
-            ),
-          ),
-        ),
-
-        textStyle:
-            const WidgetStatePropertyAll(
-          TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
-          ),
+        textStyle: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.bold,
         ),
       ),
       child: const Text('LOGIN'),
