@@ -5,6 +5,8 @@ import '../../app/theme.dart';
 import '../../models/classification_record.dart';
 import '../../providers/classification_provider.dart';
 
+import '../../widgets/common/skeleton_box.dart';
+
 class AppSidebar extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onMenuSelected;
@@ -169,39 +171,11 @@ class AppSidebar extends StatelessWidget {
 
           // Dynamic record list
           Expanded(
-            child: records.isEmpty
-                ? const _EmptyHistory()
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                    ),
-                    itemCount: records.length,
-                    separatorBuilder: (_, _) =>
-                        const SizedBox(height: 6),
-                    itemBuilder: (context, index) {
-                      final record = records[index];
-
-                      final isSelected =
-                          classificationProvider
-                              .selectedRecord
-                              ?.id ==
-                          record.id;
-
-                      return _HistoryRecordItem(
-                        record: record,
-                        isSelected: isSelected,
-                        onTap: () {
-                          context
-                              .read<
-                                  ClassificationProvider
-                              >()
-                              .selectRecord(record);
-
-                          onMenuSelected(1);
-                        },
-                      );
-                    },
-                  ),
+            child: _buildHistorySection(
+              context,
+              classificationProvider,
+              records,
+            ),
           ),
 
           // Settings
@@ -215,6 +189,60 @@ class AppSidebar extends StatelessWidget {
           const SizedBox(height: 24),
         ],
       ),
+    );
+  }
+
+
+  Widget _buildHistorySection(
+    BuildContext context,
+    ClassificationProvider provider,
+    List<ClassificationRecord> records,
+  ) {
+    if (provider.isLoadingHistory) {
+      return const _SidebarHistoryLoading();
+    }
+
+    if (provider.historyError != null) {
+      return _SidebarHistoryError(
+        message: provider.historyError!,
+        onRetry: () {
+          context
+              .read<ClassificationProvider>()
+              .retryHistory();
+        },
+      );
+    }
+
+    if (records.isEmpty) {
+      return const _EmptyHistory();
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 14,
+      ),
+      itemCount: records.length,
+      separatorBuilder: (_, _) =>
+          const SizedBox(height: 6),
+      itemBuilder: (context, index) {
+        final record = records[index];
+
+        final isSelected =
+            provider.selectedRecord?.id ==
+                record.id;
+
+        return _HistoryRecordItem(
+          record: record,
+          isSelected: isSelected,
+          onTap: () {
+            context
+                .read<ClassificationProvider>()
+                .selectRecord(record);
+
+            onMenuSelected(2);
+          },
+        );
+      },
     );
   }
 }
@@ -322,6 +350,170 @@ class _EmptyHistory extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SidebarHistoryLoading
+    extends StatelessWidget {
+  const _SidebarHistoryLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 14,
+      ),
+      children: const [
+        _SidebarSkeletonRecord(),
+        SizedBox(height: 8),
+        _SidebarSkeletonRecord(),
+        SizedBox(height: 8),
+        _SidebarSkeletonRecord(),
+      ],
+    );
+  }
+}
+
+class _SidebarSkeletonRecord
+    extends StatelessWidget {
+  const _SidebarSkeletonRecord();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 10,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceDark,
+        borderRadius: BorderRadius.circular(
+          AppRadius.small,
+        ),
+      ),
+      child: const Row(
+        children: [
+          SkeletonBox(
+            width: 36,
+            height: 36,
+            borderRadius: 8,
+          ),
+
+          SizedBox(width: 10),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                SkeletonBox(
+                  width: 120,
+                  height: 12,
+                ),
+
+                SizedBox(height: 7),
+
+                SkeletonBox(
+                  width: 75,
+                  height: 10,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SidebarHistoryError
+    extends StatelessWidget {
+  const _SidebarHistoryError({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 18,
+      ),
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceDark,
+            borderRadius: BorderRadius.circular(
+              AppRadius.small,
+            ),
+            border: Border.all(
+              color: AppColors.error,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 18,
+                    color: AppColors.error,
+                  ),
+
+                  SizedBox(width: 8),
+
+                  Text(
+                    'Unable to load records',
+                    style: TextStyle(
+                      color:
+                          AppColors.textPrimary,
+                      fontSize: 12,
+                      fontWeight:
+                          FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 8),
+
+              Text(
+                message,
+                maxLines: 3,
+                overflow:
+                    TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color:
+                      AppColors.textMuted,
+                  fontSize: 11,
+                  height: 1.4,
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              TextButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(
+                  Icons.refresh_rounded,
+                  size: 16,
+                ),
+                label:
+                    const Text('Retry'),
+              ),
+            ],
+          ),
         ),
       ),
     );

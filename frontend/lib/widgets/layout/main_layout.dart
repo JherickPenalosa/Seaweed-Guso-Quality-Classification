@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import 'package:provider/provider.dart';
+
+import '../../providers/classification_provider.dart';
+
 import '../../app/theme.dart';
 import '../../screens/classification/classification_screen.dart';
 import '../../screens/history/history_screen.dart';
@@ -24,10 +28,38 @@ class _MainLayoutState extends State<MainLayout> {
 
   static const double _desktopBreakpoint = 1000;
 
-  void _handleMenuSelected(
+  Future<void> _handleMenuSelected(
     int index, {
     bool closeDrawer = false,
-  }) {
+  }) async {
+    if (index == _selectedIndex) {
+      if (closeDrawer) {
+        _scaffoldKey.currentState?.closeDrawer();
+      }
+
+      return;
+    }
+
+    final classificationProvider =
+        context.read<ClassificationProvider>();
+
+    if (_selectedIndex == 0 &&
+        index != 0 &&
+        classificationProvider.hasUnsavedResult) {
+      final shouldContinue =
+          await _showUnsavedNavigationWarning();
+
+      if (!mounted || !shouldContinue) {
+        return;
+      }
+
+      classificationProvider.setUnsavedResult(false);
+    }
+
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
       _selectedIndex = index;
     });
@@ -35,6 +67,46 @@ class _MainLayoutState extends State<MainLayout> {
     if (closeDrawer) {
       _scaffoldKey.currentState?.closeDrawer();
     }
+  }
+
+  Future<bool> _showUnsavedNavigationWarning() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: const Text(
+            'Unsaved Result',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+            ),
+          ),
+          content: const Text(
+            'This classification result has not been saved yet. '
+            'If you leave this page, the unsaved result may be discarded.',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
+              child: const Text('CANCEL'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
+              child: const Text('CONTINUE'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result ?? false;
   }
 
   Widget _buildCurrentPage() {

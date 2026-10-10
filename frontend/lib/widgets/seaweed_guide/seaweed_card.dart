@@ -66,13 +66,7 @@ class SeaweedCard extends StatelessWidget {
                         error,
                         stackTrace,
                       ) {
-                        return const Center(
-                          child: Icon(
-                            Icons.image_not_supported_outlined,
-                            color: AppColors.textMuted,
-                            size: 42,
-                          ),
-                        );
+                        return _buildImageFallback();
                       },
                     ),
                   ),
@@ -153,6 +147,40 @@ class SeaweedCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageFallback() {
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      color: AppColors.surfaceDark,
+      alignment: Alignment.center,
+      child: const Padding(
+        padding: EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.image_not_supported_outlined,
+              color: AppColors.textMuted,
+              size: 42,
+            ),
+
+            SizedBox(height: 10),
+
+            Text(
+              'Image unavailable',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );
