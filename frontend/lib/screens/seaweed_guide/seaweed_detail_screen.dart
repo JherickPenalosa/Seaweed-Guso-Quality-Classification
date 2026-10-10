@@ -129,27 +129,7 @@ class SeaweedDetailScreen extends StatelessWidget {
                   error,
                   stackTrace,
                 ) {
-                  return const Center(
-                    child: Column(
-                      mainAxisAlignment:
-                          MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.image_not_supported_outlined,
-                          size: 54,
-                          color: AppColors.textMuted,
-                        ),
-                        SizedBox(height: 12),
-                        Text(
-                          'Image not available',
-                          style: TextStyle(
-                            color: AppColors.textMuted,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
+                  return _buildImageFallback();
                 },
               ),
             ),
@@ -316,6 +296,12 @@ class SeaweedDetailScreen extends StatelessWidget {
     required IconData icon,
     required String content,
   }) {
+
+    final displayContent =
+    content.trim().isEmpty
+        ? 'Information is currently unavailable.'
+        : content;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(22),
@@ -367,7 +353,7 @@ class SeaweedDetailScreen extends StatelessWidget {
                 const SizedBox(height: 8),
 
                 Text(
-                  content,
+                  displayContent,
                   style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 15,
@@ -418,6 +404,40 @@ class SeaweedDetailScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildImageFallback() {
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      color: AppColors.surfaceDark,
+      alignment: Alignment.center,
+      child: const Padding(
+        padding: EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.image_not_supported_outlined,
+              size: 54,
+              color: AppColors.textMuted,
+            ),
+
+            SizedBox(height: 12),
+
+            Text(
+              'Image unavailable',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

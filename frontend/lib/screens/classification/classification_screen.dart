@@ -17,7 +17,11 @@ import '../../providers/classification_provider.dart';
 
 import '../../providers/settings_provider.dart';
 import '../../widgets/common/error_message.dart';
+import '../../providers/connectivity_provider.dart';
+import '../../widgets/common/offline_banner.dart';
+
 import '../../services/classification_service.dart';
+
 
 class ClassificationScreen extends StatefulWidget {
   const ClassificationScreen({super.key});
@@ -37,6 +41,9 @@ class _ClassificationScreenState
 
   bool _isAnalyzing = false;
   bool _isSaved = false;
+  bool _isSaving = false;
+  bool _saveFailed = false;
+
   ClassificationResult? _result;
   String? _errorMessage;
 
@@ -48,6 +55,8 @@ class _ClassificationScreenState
       _selectedImage = image;
       _result = null;
       _isSaved = false;
+      _isSaving = false;
+      _saveFailed = false;
       _errorMessage = null;
     });
 
@@ -71,33 +80,70 @@ class _ClassificationScreenState
     _resetClassification();
   }
 
-  void _saveResult() {
-    if (!_hasResult || _isSaved || _selectedImage == null) {
+  Future<void> _saveResult() async {
+    if (!_hasResult ||
+        _isSaved ||
+        _isSaving ||
+        _selectedImage == null) {
       return;
     }
 
-    final record = ClassificationRecord(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
-      fileName: _selectedImage!.fileName,
-      imageBytes: _selectedImage!.bytes,
-      result: _result!,
-      createdAt: DateTime.now(),
-    );
-
-    context.read<ClassificationProvider>().addRecord(record);
-
     setState(() {
-      _isSaved = true;
+      _isSaving = true;
+      _saveFailed = false;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Classification record saved successfully.',
+    try {
+      final record = ClassificationRecord(
+        id: DateTime.now()
+            .microsecondsSinceEpoch
+            .toString(),
+        fileName: _selectedImage!.fileName,
+        imageBytes: _selectedImage!.bytes,
+        result: _result!,
+        createdAt: DateTime.now(),
+      );
+
+      context
+          .read<ClassificationProvider>()
+          .addRecord(record);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSaved = true;
+        _saveFailed = false;
+      });
+
+      context
+          .read<ClassificationProvider>()
+          .setUnsavedResult(false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Classification record saved successfully.',
+          ),
+          duration: Duration(seconds: 2),
         ),
-        duration: Duration(seconds: 2),
-      ),
-    );
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _saveFailed = true;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
   }
 
   void _resetClassification() {
@@ -106,8 +152,14 @@ class _ClassificationScreenState
       _result = null;
       _isSaved = false;
       _isAnalyzing = false;
+      _isSaving = false;
+      _saveFailed = false;
       _errorMessage = null;
     });
+
+    context
+      .read<ClassificationProvider>()
+      .setUnsavedResult(false);
 
     context
         .read<ClassificationProvider>()
@@ -157,15 +209,28 @@ class _ClassificationScreenState
   }
 
   Future<void> _classifyImage() async {
-    if (!_hasImage || _isAnalyzing) {
-      return;
-    }
+    final connectivity =
+      context.read<ConnectivityProvider>();
 
-    final image = _selectedImage;
+    if (connectivity.isOffline) {
+      setState(() {
+        _errorMessage =
+            'No internet connection. Connect to the internet '
+            'and try classification again.';
+      });
 
-    if (image == null) {
-      return;
-    }
+        return;
+      }
+
+      if (!_hasImage || _isAnalyzing) {
+        return;
+      }
+
+      final image = _selectedImage;
+
+      if (image == null) {
+        return;
+      }
 
     setState(() {
       _isAnalyzing = true;
@@ -186,7 +251,50 @@ class _ClassificationScreenState
       setState(() {
         _result = result;
       });
-    } catch (e) {
+
+      context
+          .read<ClassificationProvider>()
+          .setUnsavedResult(true);
+
+    } on ClassificationServiceException catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        switch (e.type) {
+          case ClassificationFailureType.invalidImage:
+            _errorMessage =
+                'The selected image could not be processed. '
+                'Please upload a valid PNG, JPG, or JPEG image.';
+            break;
+
+          case ClassificationFailureType.serviceUnavailable:
+            _errorMessage =
+                'The classification service is currently unavailable. '
+                'Please try again later.';
+            break;
+
+          case ClassificationFailureType.requestTimeout:
+            _errorMessage =
+                'The classification request took too long. '
+                'Please check your connection and try again.';
+            break;
+
+          case ClassificationFailureType.serverError:
+            _errorMessage =
+                'The server encountered an error while processing the image. '
+                'Please try again.';
+            break;
+
+          case ClassificationFailureType.unknown:
+            _errorMessage =
+                'An unexpected classification error occurred. '
+                'Please try again.';
+            break;
+        }
+      });
+    } catch (_) {
       if (!mounted) {
         return;
       }
@@ -194,19 +302,15 @@ class _ClassificationScreenState
       setState(() {
         _errorMessage =
             'Unable to classify this image. '
-            'Please try again or upload a clearer image.';
+            'Please try again or upload another image.';
       });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isAnalyzing = false;
-        });
-      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final connectivity =
+      context.watch<ConnectivityProvider>();
     return SingleChildScrollView(
       padding: const EdgeInsets.all(28),
       child: Column(
@@ -277,6 +381,31 @@ class _ClassificationScreenState
             ),
           ),
 
+          if (connectivity.isOffline) ...[
+            const SizedBox(height: 16),
+
+            OfflineBanner(
+              message:
+                  'Internet connection is required to classify '
+                  'Guso images. You can still review the selected '
+                  'image while offline.',
+              onRetry: () async {
+                final connectivityProvider =
+                    context.read<ConnectivityProvider>();
+
+                await connectivityProvider.refreshConnection();
+
+                if (!mounted) return;
+
+                if (connectivityProvider.isOnline) {
+                  setState(() {
+                    _errorMessage = null;
+                  });
+                }
+              },
+            ),
+          ],
+
           if (_errorMessage != null) ...[
             const SizedBox(height: 16),
 
@@ -316,6 +445,8 @@ class _ClassificationScreenState
               onUploadNext: _uploadNext,
               onSave: _saveResult,
               isSaved: _isSaved,
+              isSaving: _isSaving,
+              saveFailed: _saveFailed,
             ),
           ],
 
@@ -325,9 +456,12 @@ class _ClassificationScreenState
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed:
-                  _hasImage && !_isAnalyzing
-                      ? _classifyImage
-                      : null,
+                _hasImage &&
+                      !_isAnalyzing &&
+                      !_hasResult &&
+                      connectivity.isOnline
+                  ? _classifyImage
+                  : null,
               icon: _isAnalyzing
                   ? const SizedBox(
                       width: 18,
@@ -343,7 +477,9 @@ class _ClassificationScreenState
               label: Text(
                 _isAnalyzing
                     ? 'ANALYZING...'
-                    : 'CLASSIFY',
+                    : connectivity.isOffline
+                        ? 'OFFLINE'
+                        : 'CLASSIFY',
               ),
             ),
           ),

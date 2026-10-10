@@ -5,6 +5,7 @@ import '../../app/theme.dart';
 import '../../data/seaweed_data.dart';
 import '../../models/seaweed_info.dart';
 import '../../providers/seaweed_language_provider.dart';
+import '../../widgets/common/empty_state.dart';
 import '../../widgets/seaweed_guide/seaweed_card.dart';
 import 'seaweed_detail_screen.dart';
 
@@ -284,55 +285,22 @@ class _SeaweedGuideScreenState
   }
 
   Widget _buildEmptySearch() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 24,
-        vertical: 60,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(
-          AppRadius.large,
-        ),
-        border: Border.all(
-          color: AppColors.disabled,
-        ),
-      ),
-      child: const Column(
-        children: [
-          Icon(
-            Icons.search_off,
-            size: 54,
-            color: AppColors.textMuted,
-          ),
+  return EmptyState(
+    icon: Icons.search_off_rounded,
+    title: 'No Seaweed Found',
+    message:
+        'Try searching using another scientific, common, '
+        'Filipino, or Bisaya name.',
+    actionLabel: 'Clear Search',
+    onAction: () {
+      _searchController.clear();
 
-          SizedBox(height: 16),
-
-          Text(
-            'No Seaweed Found',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-
-          SizedBox(height: 8),
-
-          Text(
-            'Try searching using another scientific '
-            'name or local name.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 14,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+      setState(() {
+        _searchQuery = '';
+      });
+    },
+  );
+}
 
   void _openSeaweedDetails(
     BuildContext context,
