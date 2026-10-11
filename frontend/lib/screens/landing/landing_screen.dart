@@ -10,6 +10,8 @@ import '../../widgets/landing/landing_how_it_works.dart';
 import '../../widgets/landing/landing_navbar.dart';
 import '../../widgets/landing/landing_seaweed_guide_preview.dart';
 
+import 'forgot_password_screen.dart';
+
 class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
 
@@ -102,6 +104,9 @@ class _LandingScreenState extends State<LandingScreen> {
 
                         onShowLogin:
                             _showLoginPanel,
+
+                        onForgotPasswordPressed:
+                            _openForgotPassword,
 
                         onShowRegister:
                             _showRegisterPanel,
@@ -541,6 +546,57 @@ class _LandingScreenState extends State<LandingScreen> {
           );
         },
       ),
+    );
+  }
+
+  void _handleRecoverySubmission(
+    String identifier,
+  ) {
+    if (identifier.isEmpty) {
+      _showMessage(
+        'Please enter your email or contact number.',
+      );
+      return;
+    }
+
+    _showMessage(
+      'Password recovery backend will be connected next.',
+    );
+  }
+
+  Future<void> _openForgotPassword() async {
+    final result =
+        await Navigator.of(context).push<
+            ForgotPasswordReturnAction>(
+      MaterialPageRoute(
+        builder: (_) {
+          return ForgotPasswordScreen(
+            onRecoverySubmitted: (
+              identifier,
+            ) {
+              _handleRecoverySubmission(
+                identifier,
+              );
+            },
+          );
+        },
+      ),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (result ==
+        ForgotPasswordReturnAction.register) {
+      _setAuthView(
+        LandingHeroView.register,
+      );
+      return;
+    }
+
+    _setAuthView(
+      LandingHeroView.login,
     );
   }
 }

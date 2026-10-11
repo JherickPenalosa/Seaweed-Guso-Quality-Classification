@@ -1,0 +1,38 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/classification_provider.dart';
+import '../providers/settings_provider.dart';
+import '../providers/seaweed_language_provider.dart';
+
+import '../screens/home/home_screen.dart';
+import '../screens/landing/landing_screen.dart';
+
+import 'theme.dart';
+
+class GusoApp extends StatelessWidget {
+  const GusoApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) => ClassificationProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => SettingsProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => SeaweedLanguageProvider(),
+        ),
+      ],
+      child: MaterialApp(
+        title: 'GUSO',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.darkTheme,
+        home: const LandingScreen(),
+      ),
+    );
+  }
+}
