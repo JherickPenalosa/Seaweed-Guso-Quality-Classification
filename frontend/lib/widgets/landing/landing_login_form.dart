@@ -8,6 +8,7 @@ class LandingLoginForm extends StatefulWidget {
     required this.onLoginPressed,
     required this.onBackPressed,
     required this.onRegisterPressed,
+    required this.onForgotPasswordPressed,
   });
 
   final void Function(
@@ -17,6 +18,7 @@ class LandingLoginForm extends StatefulWidget {
 
   final VoidCallback onBackPressed;
   final VoidCallback onRegisterPressed;
+  final VoidCallback onForgotPasswordPressed;
 
   @override
   State<LandingLoginForm> createState() =>
@@ -164,7 +166,34 @@ class _LandingLoginFormState
             ),
           ),
 
-          const SizedBox(height: 28),
+          const SizedBox(height: 10),
+
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed:
+                  widget.onForgotPasswordPressed,
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 4,
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize:
+                    MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text(
+                'Forgot Password?',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
 
           SizedBox(
             width: double.infinity,
@@ -218,9 +247,11 @@ class _LandingLoginFormState
                   ),
                 ),
               ),
+
               icon: const Icon(
                 Icons.login_rounded,
               ),
+
               label: const Text(
                 'LOGIN',
               ),
