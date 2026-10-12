@@ -41,7 +41,8 @@ void main(List<String> args) async {
 
   final port = int.parse(Platform.environment['PORT'] ?? '8080');
   
-  // Bind explicitly to IPv4 loopback
-  final server = await serve(handler, InternetAddress.loopbackIPv4, port);
-  print('Server listening on http://127.0.0.1:${server.port}');
-}
+  // Bind explicitly to IPv4 loopback       // Original for web: InternetAddress.loopbackIPv4
+  final server = await serve(handler, InternetAddress.anyIPv4, port);
+  print('Server listening on http://0.0.0.0:${server.port}');
+  // '127.0.0.1'
+} 
