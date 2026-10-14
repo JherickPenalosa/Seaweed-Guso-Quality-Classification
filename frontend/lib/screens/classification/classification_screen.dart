@@ -304,6 +304,12 @@ class _ClassificationScreenState
             'Unable to classify this image. '
             'Please try again or upload another image.';
       });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAnalyzing = false;
+        });
+      }
     }
   }
 
