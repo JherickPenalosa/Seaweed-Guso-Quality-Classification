@@ -8,7 +8,7 @@ import '../providers/settings_provider.dart';
 import '../providers/seaweed_language_provider.dart';
 import '../providers/connectivity_provider.dart';
 
-//import '../screens/home/home_screen.dart';
+// import '../screens/home/home_screen.dart';
 import '../screens/landing/landing_screen.dart';
 
 class GusoApp extends StatelessWidget {
