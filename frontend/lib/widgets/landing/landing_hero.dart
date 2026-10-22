@@ -228,7 +228,7 @@ class _HeroContent extends StatelessWidget {
                   ),
                   SizedBox(width: 8),
                   Text(
-                    'AI-POWERED SEAWEED ANALYSIS',
+                    'AI-POWERED GUSO QUALITY ANALYSIS',
                     style: TextStyle(
                       color: AppColors.primary,
                       fontSize: 12,
@@ -279,7 +279,7 @@ class _HeroContent extends StatelessWidget {
                 maxWidth: 650,
               ),
               child: const Text(
-                'Upload an image of seaweed and receive structured '
+                'Upload an image of seaweed (guso) and receive structured '
                 'insights about its quality, freshness, image condition, '
                 'and observable characteristics.',
                 style: TextStyle(
