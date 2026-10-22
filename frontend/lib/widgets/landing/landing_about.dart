@@ -92,7 +92,7 @@ class _AboutIntroduction extends StatelessWidget {
         const SizedBox(height: 22),
 
         const Text(
-          'A Smarter Way to Understand Seaweed Quality',
+          'A Smarter Way to Understand Seaweed (Guso) Quality',
           style: TextStyle(
             color: AppColors.textPrimary,
             fontSize: 38,
@@ -105,8 +105,8 @@ class _AboutIntroduction extends StatelessWidget {
         const SizedBox(height: 24),
 
         const Text(
-          'gUSo is designed to help users examine visible qualities '
-          'of seaweed through image-based analysis. The system '
+          'Guso (Guided Utility Seaweed Observation) is designed to help users examine visible qualities '
+          'of seaweed (guso) through image-based analysis. The system '
           'presents clear and structured information that is easier '
           'to understand at a glance.',
           style: TextStyle(
@@ -156,7 +156,7 @@ class _AboutIntroduction extends StatelessWidget {
               Expanded(
                 child: Text(
                   'Built around a clean, research-oriented experience '
-                  'for seaweed quality assessment and learning.',
+                  'for seaweed (Guso) quality assessment and learning.',
                   style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 15,
@@ -196,7 +196,7 @@ class _AboutFeatureGrid extends StatelessWidget {
                 icon: Icons.image_search_outlined,
                 title: 'Image-Based Analysis',
                 description:
-                    'Use a seaweed image as the starting point for '
+                    'Use a seaweed (Guso) image as the starting point for '
                     'structured quality assessment.',
               ),
             ),
@@ -207,7 +207,7 @@ class _AboutFeatureGrid extends StatelessWidget {
                 title: 'Quality & Freshness',
                 description:
                     'View simplified indicators that help describe '
-                    'the visible condition of the seaweed sample.',
+                    'the visible condition of the seaweed (Guso) sample.',
               ),
             ),
             SizedBox(
