@@ -73,7 +73,7 @@ class LandingHowItWorks extends StatelessWidget {
                       ),
                       child: const Text(
                         'gUSo keeps the classification process simple. '
-                        'Upload a clear seaweed image, let the system analyze '
+                        'Upload a clear seaweed (Guso) image, let the system analyze '
                         'its visible characteristics, and review the '
                         'structured result.',
                         style: TextStyle(
@@ -120,7 +120,7 @@ class _WorkflowSteps extends StatelessWidget {
         icon: Icons.upload_file_outlined,
         title: 'Upload',
         description:
-            'Choose a clear image of the seaweed sample you want to assess.',
+            'Choose a clear image of the seaweed (Guso) sample you want to assess.',
       ),
       _WorkflowStepData(
         number: '02',
