@@ -34,6 +34,7 @@ class _LandingLoginFormState
       TextEditingController();
 
   bool _obscurePassword = true;
+  String? _loginErrorMessage;
 
   @override
   void dispose() {
@@ -165,6 +166,29 @@ class _LandingLoginFormState
               ),
             ),
           ),
+
+          if (_loginErrorMessage != null) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Icon(
+                  Icons.error_outline_rounded,
+                  color: AppColors.error,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _loginErrorMessage!,
+                    style: const TextStyle(
+                      color: AppColors.error,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
 
           const SizedBox(height: 10),
 
@@ -324,6 +348,14 @@ class _LandingLoginFormState
 
     final password =
         _passwordController.text;
+
+    // Sample rejection until login authentication is connected.
+    setState(() {
+      _loginErrorMessage =
+          identifier.isNotEmpty && password.isNotEmpty
+              ? 'Invalid email/contact number or password.'
+              : null;
+    });
 
     widget.onLoginPressed(
       identifier,
