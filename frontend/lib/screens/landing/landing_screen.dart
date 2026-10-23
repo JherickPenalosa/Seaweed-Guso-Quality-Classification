@@ -345,14 +345,6 @@ class _LandingScreenState extends State<LandingScreen> {
       return;
     }
 
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Login authentication will be connected later.',
-        ),
-      ),
-    );
   }
 
   void _handleRegisterSubmission(
