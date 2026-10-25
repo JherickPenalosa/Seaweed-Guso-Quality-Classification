@@ -45,205 +45,223 @@ class _LandingScreenState extends State<LandingScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                padding: const EdgeInsets.only(
-                  top: _navbarHeight,
-                ),
-                child: Column(
-                  children: [
-                    KeyedSubtree(
-                      key: _homeKey,
-                      child: LandingHero(
-                        desktopBreakpoint:
-                            _desktopBreakpoint,
-                        mobileBreakpoint:
-                            _mobileBreakpoint,
-                        maxContentWidth:
-                            _maxContentWidth,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color.fromARGB(255, 2, 76, 2),
+              Color(0xFF062408),
+              Color(0xFF001000),
+            ],
+            stops: [
+              0.0,
+              0.48,
+              1.0,
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.only(
+                    top: _navbarHeight,
+                  ),
+                  child: Column(
+                    children: [
+                      KeyedSubtree(
+                        key: _homeKey,
+                        child: LandingHero(
+                          desktopBreakpoint:
+                              _desktopBreakpoint,
+                          mobileBreakpoint:
+                              _mobileBreakpoint,
+                          maxContentWidth:
+                              _maxContentWidth,
 
-                        onGetStartedPressed:
-                            _openRegisterPanel,
+                          onGetStartedPressed:
+                              _openRegisterPanel,
 
-                        onExploreGuidePressed:
-                            _openSeaweedGuide,
+                          onExploreGuidePressed:
+                              _openSeaweedGuide,
 
-                        authView: _authView,
+                          authView: _authView,
 
-                        onLoginSubmitted: (
-                          identifier,
-                          password,
-                        ) {
-                          _handleLoginSubmission(
+                          onLoginSubmitted: (
                             identifier,
                             password,
-                          );
-                        },
+                          ) {
+                            _handleLoginSubmission(
+                              identifier,
+                              password,
+                            );
+                          },
 
-                        onRegisterSubmitted: (
-                          firstName,
-                          lastName,
-                          email,
-                          contactNumber,
-                          password,
-                          confirmPassword,
-                        ) {
-                          _handleRegisterSubmission(
+                          onRegisterSubmitted: (
                             firstName,
                             lastName,
                             email,
                             contactNumber,
                             password,
                             confirmPassword,
+                          ) {
+                            _handleRegisterSubmission(
+                              firstName,
+                              lastName,
+                              email,
+                              contactNumber,
+                              password,
+                              confirmPassword,
+                            );
+                          },
+
+                          onShowLogin:
+                              _showLoginPanel,
+
+                          onForgotPasswordPressed:
+                              _openForgotPassword,
+
+                          onShowRegister:
+                              _showRegisterPanel,
+
+                          onBackToPreview:
+                              _showPreviewPanel,
+                        ),
+                      ),
+
+                      KeyedSubtree(
+                        key: _aboutKey,
+                        child: const LandingAbout(
+                          desktopBreakpoint:
+                              _desktopBreakpoint,
+                          mobileBreakpoint:
+                              _mobileBreakpoint,
+                          maxContentWidth:
+                              _maxContentWidth,
+                        ),
+                      ),
+
+                      KeyedSubtree(
+                        key: _howItWorksKey,
+                        child: const LandingHowItWorks(
+                          desktopBreakpoint:
+                              _desktopBreakpoint,
+                          mobileBreakpoint:
+                              _mobileBreakpoint,
+                          maxContentWidth:
+                              _maxContentWidth,
+                        ),
+                      ),
+
+                      KeyedSubtree(
+                        key: _seaweedGuideKey,
+                        child:
+                            LandingSeaweedGuidePreview(
+                          desktopBreakpoint:
+                              _desktopBreakpoint,
+                          mobileBreakpoint:
+                              _mobileBreakpoint,
+                          maxContentWidth:
+                              _maxContentWidth,
+                          onExploreGuidePressed:
+                              _openSeaweedGuide,
+                        ),
+                      ),
+
+                      LandingFooter(
+                        desktopBreakpoint:
+                            _desktopBreakpoint,
+                        mobileBreakpoint:
+                            _mobileBreakpoint,
+                        maxContentWidth:
+                            _maxContentWidth,
+
+                        onHomePressed:
+                            _returnToHome,
+
+                        onAboutPressed: () {
+                          _scrollToSection(
+                            _aboutKey,
                           );
                         },
 
-                        onShowLogin:
-                            _showLoginPanel,
+                        onHowItWorksPressed: () {
+                          _scrollToSection(
+                            _howItWorksKey,
+                          );
+                        },
 
-                        onForgotPasswordPressed:
-                            _openForgotPassword,
+                        onSeaweedGuidePressed: () {
+                          _scrollToSection(
+                            _seaweedGuideKey,
+                          );
+                        },
 
-                        onShowRegister:
-                            _showRegisterPanel,
-
-                        onBackToPreview:
-                            _showPreviewPanel,
+                        onGetStartedPressed:
+                            _openRegisterPanel,
                       ),
-                    ),
-
-                    KeyedSubtree(
-                      key: _aboutKey,
-                      child: const LandingAbout(
-                        desktopBreakpoint:
-                            _desktopBreakpoint,
-                        mobileBreakpoint:
-                            _mobileBreakpoint,
-                        maxContentWidth:
-                            _maxContentWidth,
-                      ),
-                    ),
-
-                    KeyedSubtree(
-                      key: _howItWorksKey,
-                      child: const LandingHowItWorks(
-                        desktopBreakpoint:
-                            _desktopBreakpoint,
-                        mobileBreakpoint:
-                            _mobileBreakpoint,
-                        maxContentWidth:
-                            _maxContentWidth,
-                      ),
-                    ),
-
-                    KeyedSubtree(
-                      key: _seaweedGuideKey,
-                      child:
-                          LandingSeaweedGuidePreview(
-                        desktopBreakpoint:
-                            _desktopBreakpoint,
-                        mobileBreakpoint:
-                            _mobileBreakpoint,
-                        maxContentWidth:
-                            _maxContentWidth,
-                        onExploreGuidePressed:
-                            _openSeaweedGuide,
-                      ),
-                    ),
-
-                    LandingFooter(
-                      desktopBreakpoint:
-                          _desktopBreakpoint,
-                      mobileBreakpoint:
-                          _mobileBreakpoint,
-                      maxContentWidth:
-                          _maxContentWidth,
-
-                      onHomePressed:
-                          _returnToHome,
-
-                      onAboutPressed: () {
-                        _scrollToSection(
-                          _aboutKey,
-                        );
-                      },
-
-                      onHowItWorksPressed: () {
-                        _scrollToSection(
-                          _howItWorksKey,
-                        );
-                      },
-
-                      onSeaweedGuidePressed: () {
-                        _scrollToSection(
-                          _seaweedGuideKey,
-                        );
-                      },
-
-                      onGetStartedPressed:
-                          _openRegisterPanel,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  border: Border(
-                    bottom: BorderSide(
-                      color:
-                          AppColors.disabled
-                              .withValues(
-                        alpha: 0.55,
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    border: Border(
+                      bottom: BorderSide(
+                        color:
+                            AppColors.disabled
+                                .withValues(
+                          alpha: 0.55,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                child: LandingNavbar(
-                  desktopBreakpoint:
-                      _desktopBreakpoint,
-                  mobileBreakpoint:
-                      _mobileBreakpoint,
-                  maxContentWidth:
-                      _maxContentWidth,
+                  child: LandingNavbar(
+                    desktopBreakpoint:
+                        _desktopBreakpoint,
+                    mobileBreakpoint:
+                        _mobileBreakpoint,
+                    maxContentWidth:
+                        _maxContentWidth,
 
-                  onHomePressed:
-                      _returnToHome,
+                    onHomePressed:
+                        _returnToHome,
 
-                  onAboutPressed: () {
-                    _scrollToSection(
-                      _aboutKey,
-                    );
-                  },
+                    onAboutPressed: () {
+                      _scrollToSection(
+                        _aboutKey,
+                      );
+                    },
 
-                  onHowItWorksPressed: () {
-                    _scrollToSection(
-                      _howItWorksKey,
-                    );
-                  },
+                    onHowItWorksPressed: () {
+                      _scrollToSection(
+                        _howItWorksKey,
+                      );
+                    },
 
-                  onSeaweedGuidePressed: () {
-                    _scrollToSection(
-                      _seaweedGuideKey,
-                    );
-                  },
+                    onSeaweedGuidePressed: () {
+                      _scrollToSection(
+                        _seaweedGuideKey,
+                      );
+                    },
 
-                  onLoginPressed:
-                      _openLoginPanel,
+                    onLoginPressed:
+                        _openLoginPanel,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
