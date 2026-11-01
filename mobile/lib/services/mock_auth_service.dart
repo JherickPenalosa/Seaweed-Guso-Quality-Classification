@@ -30,9 +30,13 @@ class MockAuthService {
   );
 
   MockAuthAccount? _registeredAccount;
+  MockAuthAccount? _currentAccount;
 
   MockAuthAccount? get registeredAccount =>
       _registeredAccount;
+
+  MockAuthAccount? get currentAccount =>
+    _currentAccount;
 
   void register({
     required String firstName,
@@ -67,6 +71,7 @@ class MockAuthService {
       cleanedIdentifier,
       password,
     )) {
+      _currentAccount = defaultAccount;
       return true;
     }
 
@@ -78,10 +83,16 @@ class MockAuthService {
           cleanedIdentifier,
           password,
         )) {
+      _currentAccount = account;
       return true;
     }
 
+    _currentAccount = null;
     return false;
+  }
+
+  void logout() {
+    _currentAccount = null;
   }
 
   bool _matchesAccount(

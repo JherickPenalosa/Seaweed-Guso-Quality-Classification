@@ -131,6 +131,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     AppSpacing.lg,
                     AppSpacing.xl,
                   ),
+                  keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                   child: Column(
                     crossAxisAlignment:
                         CrossAxisAlignment.stretch,
@@ -142,6 +144,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
 
                       _buildLoginCard(context),
+
+                      const SizedBox(
+                        height: AppSpacing.lg,
+                      ),
                     ],
                   ),
                 ),
@@ -232,7 +238,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
 
         const SizedBox(
-          height: AppSpacing.sm,
+          height: 6,
         ),
 
         Text(
@@ -306,6 +312,17 @@ class _LoginScreenState extends State<LoginScreen> {
             TextFormField(
               controller:
                   _identifierController,
+                  onChanged: (_) {
+                    if (_loginError != null) {
+                      setState(() {
+                        _loginError = null;
+                      });
+                    }
+                  },
+                  autofillHints: const [
+                    AutofillHints.email,
+                    AutofillHints.telephoneNumber,
+                  ],
               keyboardType:
                   TextInputType.emailAddress,
               textInputAction:
@@ -341,6 +358,16 @@ class _LoginScreenState extends State<LoginScreen> {
             TextFormField(
               controller:
                   _passwordController,
+                  onChanged: (_) {
+                    if (_loginError != null) {
+                      setState(() {
+                        _loginError = null;
+                      });
+                    }
+                  },
+                  autofillHints: const [
+                    AutofillHints.password,
+                  ],
               obscureText: _obscurePassword,
               textInputAction:
                   TextInputAction.done,

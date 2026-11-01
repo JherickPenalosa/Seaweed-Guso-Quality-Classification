@@ -8,9 +8,11 @@ import '../../app/theme.dart';
 import '../../models/classification_result.dart';
 import '../../services/classification_service.dart';
 import '../../providers/settings_provider.dart';
+import '../../providers/auth_provider.dart';
 
 import '../../data/seaweed_data.dart';
 import '../../models/seaweed_info.dart';
+
 
 class ClassificationScreen extends StatefulWidget {
   const ClassificationScreen({super.key});
@@ -31,6 +33,22 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
   bool _isSaved = false;
   int? _lastDiscardVersion;
   String? _classificationError;
+
+  // For carousel images
+
+  final PageController _carouselController = PageController();
+
+  int _currentCarouselIndex = 0;
+
+  final List<String> _carouselImages = const [
+    'assets/images/carousel/carousel_1.jpg',
+    'assets/images/carousel/carousel_2.jpg',
+    'assets/images/carousel/carousel_3.jpg',
+    'assets/images/carousel/carousel_4.jpg',
+    'assets/images/carousel/carousel_5.jpg',
+    'assets/images/carousel/carousel_6.jpg',
+    'assets/images/carousel/carousel_7.jpg',
+  ];
 
   Future<void> _pickImage(ImageSource source) async {
     if (_isPickingImage || _isClassifying || _isSaving) {
@@ -172,6 +190,12 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
   }
 
   @override
+    void dispose() {
+      _carouselController.dispose();
+      super.dispose();
+    }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final provider = context.watch<ClassificationProvider>();
@@ -209,7 +233,17 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHeader(context),
-              const SizedBox(height: AppSpacing.xl),
+
+              const SizedBox(height: AppSpacing.lg),
+
+              _buildGreetingSection(context),
+
+              const SizedBox(height: AppSpacing.lg),
+
+              _buildCarouselSection(context),
+
+              const SizedBox(height: AppSpacing.lg),
+
               if (_selectedImage == null)
                 _buildUploadCard(context)
               else
@@ -275,6 +309,139 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
                     ),
               ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGreetingSection(
+    BuildContext context,
+  ) {
+    final firstName =
+        context.watch<AuthProvider>().firstName;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Hello, $firstName',
+          style: Theme.of(context)
+              .textTheme
+              .titleLarge
+              ?.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+
+        const SizedBox(height: 6),
+
+        Text(
+          'Ready to check your seaweed quality today?',
+          style: Theme.of(context)
+              .textTheme
+              .bodyMedium
+              ?.copyWith(
+                color: AppColors.textSecondary,
+                height: 1.4,
+              ),
+        ),
+      ],
+    );
+  }
+
+  // Carousel Feature Section
+
+  Widget _buildCarouselSection(
+    BuildContext context,
+  ) {
+    return Column(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(
+            AppRadius.large,
+          ),
+          child: AspectRatio(
+            aspectRatio: 1600 / 700,
+            child: PageView.builder(
+              controller: _carouselController,
+              itemCount: _carouselImages.length,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentCarouselIndex = index;
+                });
+              },
+              itemBuilder: (context, index) {
+                return Image.asset(
+                  _carouselImages[index],
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (
+                    context,
+                    error,
+                    stackTrace,
+                  ) {
+                    return Container(
+                      color: AppColors.surfaceDark,
+                      child: const Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.image_not_supported_outlined,
+                              color: AppColors.textMuted,
+                              size: 34,
+                            ),
+                            SizedBox(
+                              height: AppSpacing.sm,
+                            ),
+                            Text(
+                              'Carousel image unavailable',
+                              style: TextStyle(
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ),
+
+        const SizedBox(height: AppSpacing.sm),
+
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(
+            _carouselImages.length,
+            (index) {
+              final isActive =
+                  index == _currentCarouselIndex;
+
+              return AnimatedContainer(
+                duration: const Duration(
+                  milliseconds: 180,
+                ),
+                margin: const EdgeInsets.symmetric(
+                  horizontal: 3,
+                ),
+                width: isActive ? 18 : 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? AppColors.primary
+                      : AppColors.borderLight,
+                  borderRadius: BorderRadius.circular(
+                    999,
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ],

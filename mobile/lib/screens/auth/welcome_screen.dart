@@ -36,76 +36,71 @@ class WelcomeScreen extends StatelessWidget {
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
+            padding: const EdgeInsets.all(AppSpacing.md),
             child: Column(
               children: [
                 Expanded(
                   child: Center(
                     child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md,
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            RichText(
+                              textAlign: TextAlign.center,
+                              text: TextSpan(
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .displayMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1.5,
+                                    ),
+                                children: const [
+                                  TextSpan(
+                                    text: 'g',
+                                    style: TextStyle(
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: 'US',
+                                    style: TextStyle(
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: 'o',
+                                    style: TextStyle(
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
 
-                          RichText(
-                            textAlign: TextAlign.center,
-                            text: TextSpan(
+                            const SizedBox(height: AppSpacing.sm),
+
+                            Text(
+                              'Seaweed Quality Classification',
+                              textAlign: TextAlign.center,
                               style: Theme.of(context)
                                   .textTheme
-                                  .displaySmall
+                                  .titleMedium
                                   ?.copyWith(
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 1.5,
-                                  ),
-                              children: const [
-                                TextSpan(
-                                  text: 'g',
-                                  style: TextStyle(
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: 'US',
-                                  style: TextStyle(
                                     color: AppColors.primary,
+                                    fontWeight: FontWeight.w600,
                                   ),
-                                ),
-                                TextSpan(
-                                  text: 'o',
-                                  style: TextStyle(
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                              ],
                             ),
-                          ),
 
-                          const SizedBox(
-                            height: AppSpacing.sm,
-                          ),
+                            const SizedBox(height: AppSpacing.lg),
 
-                          Text(
-                            'Seaweed Quality Classification',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                          ),
-
-                          const SizedBox(
-                            height: AppSpacing.md,
-                          ),
-
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.md,
-                            ),
-                            child: Text(
-                              'Identify and assess seaweed quality using '
-                              'a simple and accessible mobile experience.',
+                            Text(
+                              'Identify, classify, and learn more about seaweed quality '
+                              'through a simple mobile experience.',
                               textAlign: TextAlign.center,
                               style: Theme.of(context)
                                   .textTheme
@@ -115,8 +110,8 @@ class WelcomeScreen extends StatelessWidget {
                                     height: 1.5,
                                   ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -143,7 +138,7 @@ class WelcomeScreen extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: AppColors.surfaceDark.withValues(
-          alpha: 0.82,
+          alpha: 0.90,
         ),
         borderRadius: BorderRadius.circular(
           AppRadius.large,
@@ -184,7 +179,7 @@ class WelcomeScreen extends StatelessWidget {
           ),
 
           Text(
-            'Classify • Learn • Track',
+            'Classify • Learn • Explore',
             textAlign: TextAlign.center,
             style: Theme.of(context)
                 .textTheme

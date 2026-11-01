@@ -232,6 +232,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
 
                       _buildRegisterCard(context),
+
+                      const SizedBox(
+                        height: AppSpacing.lg,
+                      ),
                     ],
                   ),
                 ),
@@ -322,7 +326,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
 
         const SizedBox(
-          height: AppSpacing.sm,
+          height: 6,
         ),
 
         Text(
@@ -376,7 +380,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
 
             const SizedBox(
-              height: AppSpacing.lg,
+              height: AppSpacing.md,
             ),
 
             TextFormField(
@@ -406,6 +410,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                 return null;
               },
+
+              autofillHints: const [
+                AutofillHints.givenName,
+              ],
             ),
 
             const SizedBox(
@@ -439,6 +447,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                 return null;
               },
+
+              autofillHints: const [
+                AutofillHints.familyName,
+              ],
             ),
 
             const SizedBox(
@@ -484,6 +496,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                 return null;
               },
+
+              autofillHints: const [
+                AutofillHints.email,
+              ],
             ),
 
             const SizedBox(
@@ -511,19 +527,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
               validator: (value) {
-                final contact =
-                    value?.trim() ?? '';
+                final contact = value?.trim() ?? '';
 
                 if (contact.isEmpty) {
                   return 'Contact number is required.';
                 }
 
-                if (contact.length < 10) {
-                  return 'Enter a valid contact number.';
+                final digitsOnly = RegExp(r'^[0-9]+$');
+
+                if (!digitsOnly.hasMatch(contact)) {
+                  return 'Contact number must contain numbers only.';
+                }
+
+                if (contact.length < 10 || contact.length > 11) {
+                  return 'Enter a valid 10 or 11-digit contact number.';
                 }
 
                 return null;
               },
+
+              autofillHints: const [
+                AutofillHints.telephoneNumber,
+              ],
             ),
 
             const SizedBox(
@@ -575,6 +600,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                 return null;
               },
+
+              autofillHints: const [
+                AutofillHints.newPassword,
+              ],
             ),
 
             const SizedBox(
@@ -632,6 +661,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                 return null;
               },
+
+              autofillHints: const [
+                AutofillHints.newPassword,
+              ],
             ),
 
             const SizedBox(

@@ -11,6 +11,20 @@ class AuthProvider extends ChangeNotifier {
   bool get isAuthenticated =>
       _isAuthenticated;
 
+  MockAuthAccount? get currentAccount =>
+    _authService.currentAccount;
+
+  String get firstName {
+    final name =
+        _authService.currentAccount?.firstName.trim();
+
+    if (name == null || name.isEmpty) {
+      return 'User';
+    }
+
+    return name;
+  }
+
   bool login({
     required String identifier,
     required String password,
@@ -31,7 +45,10 @@ class AuthProvider extends ChangeNotifier {
   }
 
   void logout() {
+    _authService.logout();
+
     _isAuthenticated = false;
+
     notifyListeners();
   }
 }

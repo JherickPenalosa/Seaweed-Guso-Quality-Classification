@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/theme.dart';
 import '../../providers/settings_provider.dart';
+import '../../providers/auth_provider.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -186,6 +187,27 @@ class SettingsScreen extends StatelessWidget {
                   ),
                   label: const Text(
                     'Reset Settings',
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: AppSpacing.md),
+
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    _showLogoutDialog(context);
+                  },
+                  icon: const Icon(
+                    Icons.logout_outlined,
+                    color: AppColors.error,
+                  ),
+                  label: const Text(
+                    'Logout',
+                    style: TextStyle(
+                      color: AppColors.error,
+                    ),
                   ),
                 ),
               ),
@@ -462,4 +484,66 @@ class SettingsScreen extends StatelessWidget {
       ),
     );
   }
+
+  // Logout dialog to confirm user action before logging out
+
+  Future<void> _showLogoutDialog(
+    BuildContext context,
+  ) async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: const Text(
+            'Logout?',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+            ),
+          ),
+          content: const Text(
+            'You will return to the Login screen.',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(
+                  dialogContext,
+                ).pop(false);
+              },
+              child: const Text(
+                'Cancel',
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(
+                  dialogContext,
+                ).pop(true);
+              },
+              child: const Text(
+                'Logout',
+                style: TextStyle(
+                  color: AppColors.error,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldLogout != true ||
+        !context.mounted) {
+      return;
+    }
+
+    context
+        .read<AuthProvider>()
+        .logout();
+  }
+  
 }

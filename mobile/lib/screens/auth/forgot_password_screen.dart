@@ -150,6 +150,10 @@ class _ForgotPasswordScreenState
                       ),
 
                       _buildRecoveryCard(context),
+
+                      const SizedBox(
+                        height: AppSpacing.lg,
+                      ),
                     ],
                   ),
                 ),
@@ -240,7 +244,7 @@ class _ForgotPasswordScreenState
         ),
 
         const SizedBox(
-          height: AppSpacing.sm,
+          height: 6,
         ),
 
         Text(
@@ -338,13 +342,43 @@ class _ForgotPasswordScreenState
                 ),
               ),
               validator: (value) {
-                if (value == null ||
-                    value.trim().isEmpty) {
+                final input = value?.trim() ?? '';
+
+                if (input.isEmpty) {
                   return 'Email or contact number is required.';
+                }
+
+                final looksLikeEmail = input.contains('@');
+
+                if (looksLikeEmail) {
+                  final emailPattern = RegExp(
+                    r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                  );
+
+                  if (!emailPattern.hasMatch(input)) {
+                    return 'Enter a valid email address.';
+                  }
+
+                  return null;
+                }
+
+                final digitsOnly = RegExp(r'^[0-9]+$');
+
+                if (!digitsOnly.hasMatch(input)) {
+                  return 'Enter a valid email or contact number.';
+                }
+
+                if (input.length < 10 || input.length > 11) {
+                  return 'Enter a valid contact number.';
                 }
 
                 return null;
               },
+
+              autofillHints: const [
+                AutofillHints.email,
+                AutofillHints.telephoneNumber,
+              ],
             ),
 
             const SizedBox(
