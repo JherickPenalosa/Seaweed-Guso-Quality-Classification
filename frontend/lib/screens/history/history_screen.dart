@@ -16,35 +16,52 @@ class HistoryScreen extends StatelessWidget {
 
   static const double _historyBreakpoint = 900;
 
+  Widget _buildGradientBackground({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.fromARGB(255, 3, 78, 3),
+            Color(0xFF0B2D0D), 
+            Color(0xFF001000)
+          ],
+          stops: [0.0, 0.48, 1.0],
+        ),
+      ),
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final provider =
-        context.watch<ClassificationProvider>();
+    final provider = context.watch<ClassificationProvider>();
 
     final records = provider.records;
 
     if (provider.isLoadingHistory) {
-      return const _HistoryLoadingView();
+      return _buildGradientBackground(child: const _HistoryLoadingView());
     }
 
     if (provider.historyError != null) {
-      return Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(28),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: 560,
-            ),
-            child: RetryState(
-              title: 'Unable to Load History',
-              message:
-                  provider.historyError ??
-                  'Saved classification records could not be loaded.',
-              onRetry: () {
-                context
-                    .read<ClassificationProvider>()
-                    .retryHistory();
-              },
+      return _buildGradientBackground(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(28),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: RetryState(
+                title: 'Unable to Load History',
+                message:
+                    provider.historyError ??
+                    'Saved classification records could not be loaded.',
+                onRetry: () {
+                  context.read<ClassificationProvider>().retryHistory();
+                },
+              ),
             ),
           ),
         ),
@@ -52,29 +69,22 @@ class HistoryScreen extends StatelessWidget {
     }
 
     if (records.isEmpty) {
-      return const _EmptyHistoryView();
+      return _buildGradientBackground(child: const _EmptyHistoryView());
     }
 
-    final selectedRecord =
-        provider.selectedRecord ?? records.first;
+    final selectedRecord = provider.selectedRecord ?? records.first;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide =
-            constraints.maxWidth >= _historyBreakpoint;
+    return _buildGradientBackground(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= _historyBreakpoint;
 
-        if (isWide) {
-          return _buildWideLayout(
-            records,
-            selectedRecord,
-          );
-        }
-
-        return _buildCompactLayout(
-          records,
-          selectedRecord,
-        );
-      },
+          if (isWide) {
+            return _buildWideLayout(records, selectedRecord);
+          }
+          return _buildCompactLayout(records, selectedRecord);
+        },
+      ),
     );
   }
 
@@ -93,16 +103,9 @@ class HistoryScreen extends StatelessWidget {
           ),
         ),
 
-        Container(
-          width: 1,
-          color: AppColors.disabled,
-        ),
+        Container(width: 1, color: AppColors.disabled),
 
-        Expanded(
-          child: _HistoryDetails(
-            record: selectedRecord,
-          ),
-        ),
+        Expanded(child: _HistoryDetails(record: selectedRecord)),
       ],
     );
   }
@@ -120,15 +123,9 @@ class HistoryScreen extends StatelessWidget {
             compact: true,
           ),
 
-          Container(
-            height: 1,
-            color: AppColors.disabled,
-          ),
+          Container(height: 1, color: AppColors.disabled),
 
-          _HistoryDetails(
-            record: selectedRecord,
-            useInternalScroll: false,
-          ),
+          _HistoryDetails(record: selectedRecord, useInternalScroll: false),
         ],
       ),
     );
@@ -144,16 +141,12 @@ class _HistoryLoadingView extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isWide =
-            constraints.maxWidth >= _breakpoint;
+        final isWide = constraints.maxWidth >= _breakpoint;
 
         if (isWide) {
           return const Row(
             children: [
-              SizedBox(
-                width: 280,
-                child: _HistoryListSkeleton(),
-              ),
+              SizedBox(width: 280, child: _HistoryListSkeleton()),
 
               VerticalDivider(
                 width: 1,
@@ -161,9 +154,7 @@ class _HistoryLoadingView extends StatelessWidget {
                 color: AppColors.disabled,
               ),
 
-              Expanded(
-                child: _HistoryDetailsSkeleton(),
-              ),
+              Expanded(child: _HistoryDetailsSkeleton()),
             ],
           );
         }
@@ -173,11 +164,7 @@ class _HistoryLoadingView extends StatelessWidget {
             children: [
               _HistoryCompactSkeleton(),
 
-              Divider(
-                height: 1,
-                thickness: 1,
-                color: AppColors.disabled,
-              ),
+              Divider(height: 1, thickness: 1, color: AppColors.disabled),
 
               _HistoryDetailsSkeleton(),
             ],
@@ -200,31 +187,21 @@ class _HistoryCompactSkeleton extends StatelessWidget {
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SkeletonBox(
-            width: 140,
-            height: 20,
-          ),
+          SkeletonBox(width: 140, height: 20),
 
           SizedBox(height: 10),
 
-          SkeletonBox(
-            width: 110,
-            height: 12,
-          ),
+          SkeletonBox(width: 110, height: 12),
 
           SizedBox(height: 20),
 
           Row(
             children: [
-              Expanded(
-                child: _HistoryRecordSkeleton(),
-              ),
+              Expanded(child: _HistoryRecordSkeleton()),
 
               SizedBox(width: 10),
 
-              Expanded(
-                child: _HistoryRecordSkeleton(),
-              ),
+              Expanded(child: _HistoryRecordSkeleton()),
             ],
           ),
         ],
@@ -232,7 +209,6 @@ class _HistoryCompactSkeleton extends StatelessWidget {
     );
   }
 }
-
 
 class _HistoryListSkeleton extends StatelessWidget {
   const _HistoryListSkeleton();
@@ -246,17 +222,11 @@ class _HistoryListSkeleton extends StatelessWidget {
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SkeletonBox(
-            width: 140,
-            height: 20,
-          ),
+          SkeletonBox(width: 140, height: 20),
 
           SizedBox(height: 10),
 
-          SkeletonBox(
-            width: 110,
-            height: 12,
-          ),
+          SkeletonBox(width: 110, height: 12),
 
           SizedBox(height: 24),
 
@@ -285,17 +255,11 @@ class _HistoryRecordSkeleton extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.surfaceDark,
-        borderRadius: BorderRadius.circular(
-          AppRadius.medium,
-        ),
+        borderRadius: BorderRadius.circular(AppRadius.medium),
       ),
       child: const Row(
         children: [
-          SkeletonBox(
-            width: 52,
-            height: 52,
-            borderRadius: 8,
-          ),
+          SkeletonBox(width: 52, height: 52, borderRadius: 8),
 
           SizedBox(width: 12),
 
@@ -303,24 +267,15 @@ class _HistoryRecordSkeleton extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SkeletonBox(
-                  width: 100,
-                  height: 14,
-                ),
+                SkeletonBox(width: 100, height: 14),
 
                 SizedBox(height: 8),
 
-                SkeletonBox(
-                  width: 75,
-                  height: 10,
-                ),
+                SkeletonBox(width: 75, height: 10),
 
                 SizedBox(height: 6),
 
-                SkeletonBox(
-                  width: 120,
-                  height: 10,
-                ),
+                SkeletonBox(width: 120, height: 10),
               ],
             ),
           ),
@@ -345,47 +300,28 @@ class _HistoryDetailsSkeleton extends StatelessWidget {
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: AppColors.surface,
-              borderRadius: BorderRadius.circular(
-                AppRadius.large,
-              ),
-              border: Border.all(
-                color: AppColors.borderPrimary,
-                width: 1.5,
-              ),
+              borderRadius: BorderRadius.circular(AppRadius.large),
+              border: Border.all(color: AppColors.borderPrimary, width: 1.5),
             ),
             child: const Row(
               children: [
-                SkeletonBox(
-                  width: 48,
-                  height: 48,
-                  borderRadius: 12,
-                ),
+                SkeletonBox(width: 48, height: 48, borderRadius: 12),
 
                 SizedBox(width: 16),
 
                 Expanded(
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SkeletonBox(
-                        width: 220,
-                        height: 20,
-                      ),
+                      SkeletonBox(width: 220, height: 20),
 
                       SizedBox(height: 10),
 
-                      SkeletonBox(
-                        width: 170,
-                        height: 12,
-                      ),
+                      SkeletonBox(width: 170, height: 12),
 
                       SizedBox(height: 7),
 
-                      SkeletonBox(
-                        width: 130,
-                        height: 11,
-                      ),
+                      SkeletonBox(width: 130, height: 11),
                     ],
                   ),
                 ),
@@ -414,8 +350,6 @@ class _HistoryDetailsSkeleton extends StatelessWidget {
   }
 }
 
-
-
 class _HistoryList extends StatelessWidget {
   final List<ClassificationRecord> records;
   final ClassificationRecord selectedRecord;
@@ -433,12 +367,7 @@ class _HistoryList extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            22,
-            20,
-            8,
-          ),
+          padding: EdgeInsets.fromLTRB(20, 22, 20, 8),
           child: Text(
             'Saved Records',
             style: TextStyle(
@@ -450,16 +379,11 @@ class _HistoryList extends StatelessWidget {
         ),
 
         Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 20,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Text(
             '${records.length} saved classification'
             '${records.length == 1 ? '' : 's'}',
-            style: const TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 12,
-            ),
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
         ),
 
@@ -470,18 +394,13 @@ class _HistoryList extends StatelessWidget {
             height: 130,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 4,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               itemCount: records.length,
-              separatorBuilder: (_, _) =>
-                  const SizedBox(width: 8),
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
                 final record = records[index];
 
-                final isSelected =
-                    record.id == selectedRecord.id;
+                final isSelected = record.id == selectedRecord.id;
 
                 return SizedBox(
                   width: 220,
@@ -489,11 +408,9 @@ class _HistoryList extends StatelessWidget {
                     record: record,
                     isSelected: isSelected,
                     onTap: () {
-                      context
-                          .read<
-                              ClassificationProvider
-                          >()
-                          .selectRecord(record);
+                      context.read<ClassificationProvider>().selectRecord(
+                        record,
+                      );
                     },
                   ),
                 );
@@ -503,28 +420,19 @@ class _HistoryList extends StatelessWidget {
         else
           Expanded(
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 4,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               itemCount: records.length,
-              separatorBuilder: (_, _) =>
-                  const SizedBox(height: 8),
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final record = records[index];
 
-                final isSelected =
-                    record.id == selectedRecord.id;
+                final isSelected = record.id == selectedRecord.id;
 
                 return _HistoryListItem(
                   record: record,
                   isSelected: isSelected,
                   onTap: () {
-                    context
-                        .read<
-                            ClassificationProvider
-                        >()
-                        .selectRecord(record);
+                    context.read<ClassificationProvider>().selectRecord(record);
                   },
                 );
               },
@@ -537,12 +445,7 @@ class _HistoryList extends StatelessWidget {
       width: double.infinity,
       color: AppColors.sidebar,
       child: compact
-          ? Padding(
-              padding: const EdgeInsets.only(
-                bottom: 12,
-              ),
-              child: content,
-            )
+          ? Padding(padding: const EdgeInsets.only(bottom: 12), child: content)
           : content,
     );
   }
@@ -562,32 +465,21 @@ class _HistoryListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: isSelected
-          ? AppColors.primaryDark
-          : AppColors.surfaceDark,
-      borderRadius: BorderRadius.circular(
-        AppRadius.medium,
-      ),
+      color: isSelected ? AppColors.primaryDark : AppColors.surfaceDark,
+      borderRadius: BorderRadius.circular(AppRadius.medium),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(
-          AppRadius.medium,
-        ),
+        borderRadius: BorderRadius.circular(AppRadius.medium),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(
-                  AppRadius.small,
-                ),
+                borderRadius: BorderRadius.circular(AppRadius.small),
                 child: SizedBox(
                   width: 52,
                   height: 52,
-                  child: Image.memory(
-                    record.imageBytes,
-                    fit: BoxFit.cover,
-                  ),
+                  child: Image.memory(record.imageBytes, fit: BoxFit.cover),
                 ),
               ),
 
@@ -595,8 +487,7 @@ class _HistoryListItem extends StatelessWidget {
 
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       record.result.qualityClass,
@@ -649,10 +540,7 @@ class _HistoryDetails extends StatelessWidget {
   final ClassificationRecord record;
   final bool useInternalScroll;
 
-  const _HistoryDetails({
-    required this.record,
-    this.useInternalScroll = true,
-  });
+  const _HistoryDetails({required this.record, this.useInternalScroll = true});
 
   @override
   Widget build(BuildContext context) {
@@ -661,35 +549,25 @@ class _HistoryDetails extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _RecordHeader(
-            record: record,
-          ),
+          _RecordHeader(record: record),
 
           const SizedBox(height: 24),
 
-          _ImagePreview(
-            record: record,
-          ),
+          _ImagePreview(record: record),
 
           const SizedBox(height: 24),
 
-          ClassificationSummary(
-            result: record.result,
-          ),
+          ClassificationSummary(result: record.result),
 
           const SizedBox(height: 24),
 
-          CharacteristicsPanel(
-            result: record.result,
-          ),
+          CharacteristicsPanel(result: record.result),
         ],
       ),
     );
 
     if (useInternalScroll) {
-      return SingleChildScrollView(
-        child: content,
-      );
+      return SingleChildScrollView(child: content);
     }
 
     return content;
@@ -699,9 +577,7 @@ class _HistoryDetails extends StatelessWidget {
 class _RecordHeader extends StatelessWidget {
   final ClassificationRecord record;
 
-  const _RecordHeader({
-    required this.record,
-  });
+  const _RecordHeader({required this.record});
 
   @override
   Widget build(BuildContext context) {
@@ -710,13 +586,8 @@ class _RecordHeader extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(
-          AppRadius.large,
-        ),
-        border: Border.all(
-          color: AppColors.borderPrimary,
-          width: 1.5,
-        ),
+        borderRadius: BorderRadius.circular(AppRadius.large),
+        border: Border.all(color: AppColors.borderPrimary, width: 1.5),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -726,9 +597,7 @@ class _RecordHeader extends StatelessWidget {
             height: 48,
             decoration: BoxDecoration(
               color: AppColors.primaryDark,
-              borderRadius: BorderRadius.circular(
-                AppRadius.medium,
-              ),
+              borderRadius: BorderRadius.circular(AppRadius.medium),
             ),
             child: const Icon(
               Icons.history,
@@ -741,8 +610,7 @@ class _RecordHeader extends StatelessWidget {
 
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
                   'Saved Classification Record',
@@ -783,15 +651,9 @@ class _RecordHeader extends StatelessWidget {
           IconButton(
             tooltip: 'Delete record',
             onPressed: () {
-              _confirmDelete(
-                context,
-                record,
-              );
+              _confirmDelete(context, record);
             },
-            icon: const Icon(
-              Icons.delete_outline,
-              color: AppColors.error,
-            ),
+            icon: const Icon(Icons.delete_outline, color: AppColors.error),
           ),
         ],
       ),
@@ -802,24 +664,19 @@ class _RecordHeader extends StatelessWidget {
     BuildContext context,
     ClassificationRecord record,
   ) async {
-    final shouldDelete =
-        await showDialog<bool>(
+    final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: AppColors.surface,
           title: const Text(
             'Delete Record',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-            ),
+            style: TextStyle(color: AppColors.textPrimary),
           ),
           content: const Text(
             'Are you sure you want to delete this saved '
             'classification record?',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-            ),
+            style: TextStyle(color: AppColors.textSecondary),
           ),
           actions: [
             TextButton(
@@ -848,15 +705,11 @@ class _RecordHeader extends StatelessWidget {
       return;
     }
 
-    context
-        .read<ClassificationProvider>()
-        .removeRecord(record.id);
+    context.read<ClassificationProvider>().removeRecord(record.id);
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text(
-          'Classification record deleted.',
-        ),
+        content: Text('Classification record deleted.'),
         duration: Duration(seconds: 2),
       ),
     );
@@ -866,34 +719,24 @@ class _RecordHeader extends StatelessWidget {
 class _ImagePreview extends StatelessWidget {
   final ClassificationRecord record;
 
-  const _ImagePreview({
-    required this.record,
-  });
+  const _ImagePreview({required this.record});
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final imageHeight =
-            constraints.maxWidth < 600 ? 300.0 : 420.0;
+        final imageHeight = constraints.maxWidth < 600 ? 300.0 : 420.0;
 
         return Container(
           width: double.infinity,
           height: imageHeight,
           decoration: BoxDecoration(
             color: AppColors.surfaceDark,
-            borderRadius: BorderRadius.circular(
-              AppRadius.large,
-            ),
-            border: Border.all(
-              color: AppColors.borderLight,
-              width: 2,
-            ),
+            borderRadius: BorderRadius.circular(AppRadius.large),
+            border: Border.all(color: AppColors.borderLight, width: 2),
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(
-              AppRadius.large - 2,
-            ),
+            borderRadius: BorderRadius.circular(AppRadius.large - 2),
             child: Image.memory(
               record.imageBytes,
               fit: BoxFit.contain,
@@ -915,9 +758,7 @@ class _EmptyHistoryView extends StatelessWidget {
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: 520,
-          ),
+          constraints: const BoxConstraints(maxWidth: 520),
           child: const EmptyState(
             icon: Icons.history_outlined,
             title: 'No Saved Records',
