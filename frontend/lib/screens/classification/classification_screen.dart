@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
@@ -22,20 +21,16 @@ import '../../widgets/common/offline_banner.dart';
 
 import '../../services/classification_service.dart';
 
-
 class ClassificationScreen extends StatefulWidget {
   const ClassificationScreen({super.key});
 
   @override
-  State<ClassificationScreen> createState() =>
-      _ClassificationScreenState();
+  State<ClassificationScreen> createState() => _ClassificationScreenState();
 }
 
-class _ClassificationScreenState
-    extends State<ClassificationScreen> {
-  
+class _ClassificationScreenState extends State<ClassificationScreen> {
   final ClassificationService _classificationService =
-    const ClassificationService();
+      const ClassificationService();
 
   SelectedImage? _selectedImage;
 
@@ -50,6 +45,22 @@ class _ClassificationScreenState
   bool get _hasImage => _selectedImage != null;
   bool get _hasResult => _result != null;
 
+  // This field is used to control the carousel of images displayed at the top of the screen. It allows users to swipe through different images for classification.
+
+  final PageController _carouselController = PageController();
+
+  int _currentCarouselIndex = 0;
+
+  final List<String> _carouselImages = const [
+    'assets/images/carousel/carousel_1.jpg',
+    'assets/images/carousel/carousel_2.jpg',
+    'assets/images/carousel/carousel_3.jpg',
+    'assets/images/carousel/carousel_4.jpg',
+    'assets/images/carousel/carousel_5.jpg',
+    'assets/images/carousel/carousel_6.jpg',
+    'assets/images/carousel/carousel_7.jpg',
+  ];
+
   void _handleImageChanged(SelectedImage? image) {
     setState(() {
       _selectedImage = image;
@@ -60,19 +71,13 @@ class _ClassificationScreenState
       _errorMessage = null;
     });
 
-    context
-        .read<ClassificationProvider>()
-        .clearSelectedRecord();
+    context.read<ClassificationProvider>().clearSelectedRecord();
   }
 
   void _uploadNext() {
     final settings = context.read<SettingsProvider>();
 
-    if (
-        _hasResult &&
-        !_isSaved &&
-        settings.confirmBeforeDiscard
-    ) {
+    if (_hasResult && !_isSaved && settings.confirmBeforeDiscard) {
       _showUnsavedWarning();
       return;
     }
@@ -81,10 +86,7 @@ class _ClassificationScreenState
   }
 
   Future<void> _saveResult() async {
-    if (!_hasResult ||
-        _isSaved ||
-        _isSaving ||
-        _selectedImage == null) {
+    if (!_hasResult || _isSaved || _isSaving || _selectedImage == null) {
       return;
     }
 
@@ -95,18 +97,14 @@ class _ClassificationScreenState
 
     try {
       final record = ClassificationRecord(
-        id: DateTime.now()
-            .microsecondsSinceEpoch
-            .toString(),
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
         fileName: _selectedImage!.fileName,
         imageBytes: _selectedImage!.bytes,
         result: _result!,
         createdAt: DateTime.now(),
       );
 
-      context
-          .read<ClassificationProvider>()
-          .addRecord(record);
+      context.read<ClassificationProvider>().addRecord(record);
 
       if (!mounted) {
         return;
@@ -117,15 +115,11 @@ class _ClassificationScreenState
         _saveFailed = false;
       });
 
-      context
-          .read<ClassificationProvider>()
-          .setUnsavedResult(false);
+      context.read<ClassificationProvider>().setUnsavedResult(false);
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Classification record saved successfully.',
-          ),
+          content: Text('Classification record saved successfully.'),
           duration: Duration(seconds: 2),
         ),
       );
@@ -157,13 +151,9 @@ class _ClassificationScreenState
       _errorMessage = null;
     });
 
-    context
-      .read<ClassificationProvider>()
-      .setUnsavedResult(false);
+    context.read<ClassificationProvider>().setUnsavedResult(false);
 
-    context
-        .read<ClassificationProvider>()
-        .clearSelectedRecord();
+    context.read<ClassificationProvider>().clearSelectedRecord();
   }
 
   Future<void> _showUnsavedWarning() async {
@@ -174,16 +164,12 @@ class _ClassificationScreenState
           backgroundColor: AppColors.surface,
           title: const Text(
             'Unsaved Result',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-            ),
+            style: TextStyle(color: AppColors.textPrimary),
           ),
           content: const Text(
             'This classification result has not been saved yet. '
             'Do you want to continue and upload another image?',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-            ),
+            style: TextStyle(color: AppColors.textSecondary),
           ),
           actions: [
             TextButton(
@@ -209,8 +195,7 @@ class _ClassificationScreenState
   }
 
   Future<void> _classifyImage() async {
-    final connectivity =
-      context.read<ConnectivityProvider>();
+    final connectivity = context.read<ConnectivityProvider>();
 
     if (connectivity.isOffline) {
       setState(() {
@@ -219,18 +204,18 @@ class _ClassificationScreenState
             'and try classification again.';
       });
 
-        return;
-      }
+      return;
+    }
 
-      if (!_hasImage || _isAnalyzing) {
-        return;
-      }
+    if (!_hasImage || _isAnalyzing) {
+      return;
+    }
 
-      final image = _selectedImage;
+    final image = _selectedImage;
 
-      if (image == null) {
-        return;
-      }
+    if (image == null) {
+      return;
+    }
 
     setState(() {
       _isAnalyzing = true;
@@ -239,10 +224,7 @@ class _ClassificationScreenState
     });
 
     try {
-      final result =
-          await _classificationService.classifyImage(
-        image,
-      );
+      final result = await _classificationService.classifyImage(image);
 
       if (!mounted) {
         return;
@@ -252,10 +234,7 @@ class _ClassificationScreenState
         _result = result;
       });
 
-      context
-          .read<ClassificationProvider>()
-          .setUnsavedResult(true);
-
+      context.read<ClassificationProvider>().setUnsavedResult(true);
     } on ClassificationServiceException catch (e) {
       if (!mounted) {
         return;
@@ -313,183 +292,366 @@ class _ClassificationScreenState
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final connectivity =
-      context.watch<ConnectivityProvider>();
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius:
-                  BorderRadius.circular(AppRadius.large),
-              border: Border.all(
-                color: AppColors.borderPrimary,
-                width: 1.5,
-              ),
-            ),
-            
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  // Greeting section at the top of the screen
+
+  Widget _buildGreetingSection(BuildContext context) {
+    const firstName = 'User';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Welcome back, $firstName',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Ready to check your seaweed quality today?',
+          style: Theme.of(context).textTheme.bodyLarge
+              ?.copyWith(color: AppColors.textSecondary, height: 1.4),
+        ),
+      ],
+    );
+  }
+
+  // This is the method that displays the carousel of images at the top of the screen. It allows users to swipe through different images for classification.
+
+  Widget _buildCarouselSection(BuildContext context) {
+    return Column(
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return Stack(
+              alignment: Alignment.center,
               children: [
-                const Icon(
-                  Icons.image_search_outlined,
-                  color: AppColors.primary,
-                  size: 32,
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppRadius.large),
+                  child: AspectRatio(
+                    aspectRatio: 1600 / 700,
+                    child: PageView.builder(
+                      controller: _carouselController,
+                      itemCount: _carouselImages.length,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _currentCarouselIndex = index;
+                        });
+                      },
+                      itemBuilder: (context, index) {
+                        return Image.asset(
+                          _carouselImages[index],
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: AppColors.surfaceDark,
+                              child: const Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.image_not_supported_outlined,
+                                      color: AppColors.textMuted,
+                                      size: 42,
+                                    ),
+                                    SizedBox(height: 10),
+                                    Text(
+                                      'Carousel image unavailable',
+                                      style: TextStyle(
+                                        color: AppColors.textMuted,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
                 ),
 
-                const SizedBox(width: 16),
+                Positioned(
+                  left: 16,
+                  child: _buildCarouselArrow(
+                    icon: Icons.chevron_left,
+                    onPressed: _previousCarouselImage,
+                  ),
+                ),
 
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Classify Guso Quality',
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      Text(
-                        _isAnalyzing
-                            ? 'Analyzing the uploaded Guso image. '
-                                'Please wait while the system processes the image.'
-                            : _hasResult
-                                ? 'Classification completed successfully. '
-                                    'Review the classification result and observed characteristics below.'
-                                : _hasImage
-                                    ? 'Image ready for classification. '
-                                        'Review the selected image, then press Classify.'
-                                    : 'Upload a clear image of Guso seaweed to begin classification. '
-                                        'For better results, use an image with good lighting '
-                                        'and minimal background obstruction.',
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 14,
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
+                Positioned(
+                  right: 16,
+                  child: _buildCarouselArrow(
+                    icon: Icons.chevron_right,
+                    onPressed: _nextCarouselImage,
                   ),
                 ),
               ],
+            );
+          },
+        ),
+
+        const SizedBox(height: 12),
+
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(_carouselImages.length, (index) {
+            final isActive = index == _currentCarouselIndex;
+
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: isActive ? 22 : 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: isActive ? AppColors.primary : AppColors.borderLight,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCarouselArrow({
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return Material(
+      color: Colors.black.withValues(alpha: 0.45),
+      shape: const CircleBorder(),
+      child: IconButton(
+        onPressed: onPressed,
+        icon: Icon(icon, color: AppColors.textPrimary, size: 30),
+        tooltip: 'Change carousel image',
+      ),
+    );
+  }
+
+  void _previousCarouselImage() {
+    final previousIndex = _currentCarouselIndex == 0
+        ? _carouselImages.length - 1
+        : _currentCarouselIndex - 1;
+
+    _carouselController.animateToPage(
+      previousIndex,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _nextCarouselImage() {
+    final nextIndex = _currentCarouselIndex == _carouselImages.length - 1
+        ? 0
+        : _currentCarouselIndex + 1;
+
+    _carouselController.animateToPage(
+      nextIndex,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  // Disposal
+  @override
+  void dispose() {
+    _carouselController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final connectivity = context.watch<ConnectivityProvider>();
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.fromARGB(255, 3, 78, 3),
+            Color(0xFF0B2D0D),
+            Color(0xFF001000),
+          ],
+          stops: [0.0, 0.48, 1.0],
+        ),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(AppRadius.large),
+                border: Border.all(color: AppColors.borderPrimary, width: 1.5),
+              ),
+
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.image_search_outlined,
+                    color: AppColors.primary,
+                    size: 32,
+                  ),
+
+                  const SizedBox(width: 16),
+
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Classify Guso Quality',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        Text(
+                          _isAnalyzing
+                              ? 'Analyzing the uploaded Guso image. '
+                                    'Please wait while the system processes the image.'
+                              : _hasResult
+                              ? 'Classification completed successfully. '
+                                    'Review the classification result and observed characteristics below.'
+                              : _hasImage
+                              ? 'Image ready for classification. '
+                                    'Review the selected image, then press Classify.'
+                              : 'Upload a clear image of Guso seaweed to begin classification. '
+                                    'For better results, use an image with good lighting '
+                                    'and minimal background obstruction.',
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
 
-          if (connectivity.isOffline) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
 
-            OfflineBanner(
-              message:
-                  'Internet connection is required to classify '
-                  'Guso images. You can still review the selected '
-                  'image while offline.',
-              onRetry: () async {
-                final connectivityProvider =
-                    context.read<ConnectivityProvider>();
+            _buildGreetingSection(context),
 
-                await connectivityProvider.refreshConnection();
+            const SizedBox(height: 24),
 
-                if (!mounted) return;
+            _buildCarouselSection(context),
 
-                if (connectivityProvider.isOnline) {
+            if (connectivity.isOffline) ...[
+              const SizedBox(height: 16),
+
+              OfflineBanner(
+                message:
+                    'Internet connection is required to classify '
+                    'Guso images. You can still review the selected '
+                    'image while offline.',
+                onRetry: () async {
+                  final connectivityProvider = context
+                      .read<ConnectivityProvider>();
+
+                  await connectivityProvider.refreshConnection();
+
+                  if (!mounted) return;
+
+                  if (connectivityProvider.isOnline) {
+                    setState(() {
+                      _errorMessage = null;
+                    });
+                  }
+                },
+              ),
+            ],
+
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 16),
+
+              ErrorMessage(
+                message: _errorMessage!,
+                onDismiss: () {
                   setState(() {
                     _errorMessage = null;
                   });
-                }
-              },
-            ),
-          ],
-
-          if (_errorMessage != null) ...[
-            const SizedBox(height: 16),
-
-            ErrorMessage(
-              message: _errorMessage!,
-              onDismiss: () {
-                setState(() {
-                  _errorMessage = null;
-                });
-              },
-            ),
-          ],
-
-          const SizedBox(height: 24),
-
-          ImageUploadArea(
-            onImageChanged: _handleImageChanged,
-            isAnalyzing: _isAnalyzing,
-          ),
-          
-          if (_hasResult) ...[
-            const SizedBox(height: 24),
-
-            ClassificationSummary(
-              result: _result!,
-            ),
+                },
+              ),
+            ],
 
             const SizedBox(height: 24),
 
-            CharacteristicsPanel(
-              result: _result!,
+            ImageUploadArea(
+              onImageChanged: _handleImageChanged,
+              isAnalyzing: _isAnalyzing,
             ),
 
-            const SizedBox(height: 24),
+            if (_hasResult) ...[
+              const SizedBox(height: 24),
 
-            ResultActions(
-              onUploadNext: _uploadNext,
-              onSave: _saveResult,
-              isSaved: _isSaved,
-              isSaving: _isSaving,
-              saveFailed: _saveFailed,
-            ),
-          ],
+              ClassificationSummary(result: _result!),
 
-          const SizedBox(height: 20),
+              const SizedBox(height: 24),
 
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed:
-                _hasImage &&
-                      !_isAnalyzing &&
-                      !_hasResult &&
-                      connectivity.isOnline
-                  ? _classifyImage
-                  : null,
-              icon: _isAnalyzing
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.black,
-                      ),
-                    )
-                  : const Icon(
-                      Icons.auto_awesome_outlined,
-                    ),
-              label: Text(
-                _isAnalyzing
-                    ? 'ANALYZING...'
-                    : connectivity.isOffline
-                        ? 'OFFLINE'
-                        : 'CLASSIFY',
+              CharacteristicsPanel(result: _result!),
+
+              const SizedBox(height: 24),
+
+              ResultActions(
+                onUploadNext: _uploadNext,
+                onSave: _saveResult,
+                isSaved: _isSaved,
+                isSaving: _isSaving,
+                saveFailed: _saveFailed,
+              ),
+            ],
+
+            const SizedBox(height: 20),
+
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed:
+                    _hasImage &&
+                        !_isAnalyzing &&
+                        !_hasResult &&
+                        connectivity.isOnline
+                    ? _classifyImage
+                    : null,
+                icon: _isAnalyzing
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.black,
+                        ),
+                      )
+                    : const Icon(Icons.auto_awesome_outlined),
+                label: Text(
+                  _isAnalyzing
+                      ? 'ANALYZING...'
+                      : connectivity.isOffline
+                      ? 'OFFLINE'
+                      : 'CLASSIFY',
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
