@@ -9,36 +9,22 @@ class SeaweedCard extends StatelessWidget {
   final SeaweedInfo seaweed;
   final VoidCallback onTap;
 
-  const SeaweedCard({
-    super.key,
-    required this.seaweed,
-    required this.onTap,
-  });
+  const SeaweedCard({super.key, required this.seaweed, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final language =
-        context.watch<SeaweedLanguageProvider>().language;
+    final language = context.watch<SeaweedLanguageProvider>().language;
 
     return Material(
       color: AppColors.surface,
-      borderRadius: BorderRadius.circular(
-        AppRadius.large,
-      ),
+      borderRadius: BorderRadius.circular(AppRadius.large),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(
-          AppRadius.large,
-        ),
+        borderRadius: BorderRadius.circular(AppRadius.large),
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(
-              AppRadius.large,
-            ),
-            border: Border.all(
-              color: AppColors.disabled,
-              width: 1,
-            ),
+            borderRadius: BorderRadius.circular(AppRadius.large),
+            border: Border.all(color: AppColors.disabled, width: 1),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -48,12 +34,8 @@ class SeaweedCard extends StatelessWidget {
                 aspectRatio: 16 / 9,
                 child: ClipRRect(
                   borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(
-                      AppRadius.large,
-                    ),
-                    topRight: Radius.circular(
-                      AppRadius.large,
-                    ),
+                    topLeft: Radius.circular(AppRadius.large),
+                    topRight: Radius.circular(AppRadius.large),
                   ),
                   child: Container(
                     color: AppColors.surfaceDark,
@@ -61,11 +43,7 @@ class SeaweedCard extends StatelessWidget {
                       seaweed.imagePath,
                       width: double.infinity,
                       fit: BoxFit.cover,
-                      errorBuilder: (
-                        context,
-                        error,
-                        stackTrace,
-                      ) {
+                      errorBuilder: (context, error, stackTrace) {
                         return _buildImageFallback();
                       },
                     ),
@@ -78,8 +56,7 @@ class SeaweedCard extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(18),
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         seaweed.scientificName,
@@ -108,18 +85,18 @@ class SeaweedCard extends StatelessWidget {
 
                       const SizedBox(height: 12),
 
-                      Expanded(
-                        child: Text(
-                          seaweed.getDescription(language),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 13,
-                            height: 1.4,
-                          ),
+                      Text(
+                        seaweed.getDescription(language),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                          height: 1.4,
                         ),
                       ),
+
+                      const Spacer(),
 
                       const SizedBox(height: 14),
 
@@ -129,15 +106,17 @@ class SeaweedCard extends StatelessWidget {
 
                           TextButton.icon(
                             onPressed: onTap,
-                            iconAlignment:
-                                IconAlignment.end,
-                            icon: const Icon(
-                              Icons.arrow_forward,
-                              size: 17,
+                            style: TextButton.styleFrom(
+                              minimumSize: const Size(0, 36),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
-                            label: const Text(
-                              'View More',
-                            ),
+                            iconAlignment: IconAlignment.end,
+                            icon: const Icon(Icons.arrow_forward, size: 17),
+                            label: const Text('View More'),
                           ),
                         ],
                       ),

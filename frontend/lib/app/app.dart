@@ -8,8 +8,9 @@ import '../providers/settings_provider.dart';
 import '../providers/seaweed_language_provider.dart';
 import '../providers/connectivity_provider.dart';
 
-// import '../screens/home/home_screen.dart';
-import '../screens/landing/landing_screen.dart';
+import '../screens/home/home_screen.dart';
+
+// import '../screens/landing/landing_screen.dart';
 
 class GusoApp extends StatelessWidget {
   const GusoApp({super.key});
@@ -18,27 +19,19 @@ class GusoApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(
-          create: (_) => ClassificationProvider(),
-        ),
+        ChangeNotifierProvider(create: (_) => ClassificationProvider()),
 
-        ChangeNotifierProvider(
-          create: (_) => SettingsProvider(),
-        ),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
 
-        ChangeNotifierProvider(
-          create: (_) => SeaweedLanguageProvider(),
-        ),
+        ChangeNotifierProvider(create: (_) => SeaweedLanguageProvider()),
 
-        ChangeNotifierProvider(
-          create: (_) => ConnectivityProvider(),
-        ),
+        ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
       ],
       child: MaterialApp(
         title: 'gUSo',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.darkTheme,
-        home: const LandingScreen(),
+        home: const HomeScreen(),
       ),
     );
   }

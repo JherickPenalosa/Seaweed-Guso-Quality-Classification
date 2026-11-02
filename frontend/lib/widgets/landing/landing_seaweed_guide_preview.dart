@@ -197,7 +197,7 @@ class _GuidePreviewGrid extends StatelessWidget {
               index++) ...[
             Expanded(
               child: SizedBox(
-                height: 410,
+                height: 440,
                 child: SeaweedCard(
                   seaweed: seaweeds[index],
                   onTap: () {
@@ -232,7 +232,7 @@ class _GuidePreviewGrid extends StatelessWidget {
             for (final seaweed in seaweeds)
               SizedBox(
                 width: cardWidth,
-                height: useTwoColumns ? 420 : 430,
+                height: useTwoColumns ? 450 : 470,
                 child: SeaweedCard(
                   seaweed: seaweed,
                   onTap: () {

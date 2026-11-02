@@ -33,7 +33,7 @@ class LandingHowItWorks extends StatelessWidget {
 
         return Container(
           width: double.infinity,
-          color: AppColors.background,
+          color: const Color.fromARGB(255, 0, 15, 0),
           child: Center(
             child: ConstrainedBox(
               constraints: BoxConstraints(
