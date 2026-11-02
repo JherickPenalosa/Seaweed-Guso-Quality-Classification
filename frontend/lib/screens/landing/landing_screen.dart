@@ -51,8 +51,8 @@ class _LandingScreenState extends State<LandingScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color.fromARGB(255, 2, 76, 2),
-              Color(0xFF062408),
+              Color.fromARGB(255, 3, 78, 3),
+              Color(0xFF0B2D0D),
               Color(0xFF001000),
             ],
             stops: [
