@@ -66,6 +66,7 @@ flutter:
   assets:
     - assets/images/seaweeds/
     - assets/images/carousel/
+    - assets/images/landing/
 
 
 
