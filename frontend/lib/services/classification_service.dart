@@ -7,28 +7,6 @@ import '../models/classification_result.dart';
 import '../models/selected_image.dart';
 import 'auth_service.dart';
 
-
-enum ClassificationFailureType {
-  invalidImage,
-  serviceUnavailable,
-  requestTimeout,
-  serverError,
-  unknown,
-}
-
-class ClassificationServiceException implements Exception {
-  const ClassificationServiceException({
-    required this.type,
-    required this.message,
-  });
-
-  final ClassificationFailureType type;
-  final String message;
-
-  @override
-  String toString() => message;
-}
-
 enum ClassificationFailureType {
   invalidImage,
   serviceUnavailable,

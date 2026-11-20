@@ -30,13 +30,6 @@ class ResultActions extends StatelessWidget {
     this.canSaveResult = true,
   });
 
-  final VoidCallback onUploadNext;
-  final VoidCallback onSave;
-
-  final bool isSaved;
-  final bool isSaving;
-  final bool saveFailed;
-
   @override
   Widget build(BuildContext context) {
     final canUploadNext = !isSaving && !isBusy;

@@ -24,26 +24,6 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   static const double _historyBreakpoint = 900;
 
-  Widget _buildGradientBackground({required Widget child}) {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color.fromARGB(255, 3, 78, 3),
-            Color(0xFF0B2D0D), 
-            Color(0xFF001000)
-          ],
-          stops: [0.0, 0.48, 1.0],
-        ),
-      ),
-      child: child,
-    );
-  }
-
   @override
   void initState() {
     super.initState();
