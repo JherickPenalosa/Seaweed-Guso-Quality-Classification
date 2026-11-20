@@ -1,5 +1,33 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+
 import '../models/classification_result.dart';
 import '../models/selected_image.dart';
+import 'auth_service.dart';
+
+
+enum ClassificationFailureType {
+  invalidImage,
+  serviceUnavailable,
+  requestTimeout,
+  serverError,
+  unknown,
+}
+
+class ClassificationServiceException implements Exception {
+  const ClassificationServiceException({
+    required this.type,
+    required this.message,
+  });
+
+  final ClassificationFailureType type;
+  final String message;
+
+  @override
+  String toString() => message;
+}
 
 enum ClassificationFailureType {
   invalidImage,
@@ -25,39 +53,100 @@ class ClassificationServiceException implements Exception {
 class ClassificationService {
   const ClassificationService();
 
-  Future<ClassificationResult> classifyImage(
-    SelectedImage image,
-  ) async {
+  static const String _baseUrl = String.fromEnvironment(
+    'GUSO_API_BASE_URL',
+    defaultValue: 'http://127.0.0.1:8000',
+  );
+
+  // static const String _baseUrl = 'http://127.0.0.1:8000';
+
+  // =====================================================
+  // CLASSIFY IMAGE WITH JWT AUTHENTICATION
+  // =====================================================
+
+  Future<ClassificationResult> classifyImage(SelectedImage image) async {
     if (image.bytes.isEmpty) {
-      throw const ClassificationServiceException(
-        type: ClassificationFailureType.invalidImage,
-        message:
-            'The selected image contains no readable image data.',
-      );
+      throw Exception('The selected image contains no data.');
     }
 
-    if (!image.isSupportedFormat) {
-      throw const ClassificationServiceException(
-        type: ClassificationFailureType.invalidImage,
-        message:
-            'Unsupported image format. Please use PNG, JPG, or JPEG.',
-      );
+    // Make sure the user is logged in.
+    if (!AuthService.hasAccessToken) {
+      throw Exception('Please log in before classifying an image.');
     }
 
-    /*
-     * TEMPORARY FRONTEND MOCK
-     *
-     * This delay represents the classification request while
-     * the frontend is not yet connected to the real FastAPI API.
-     *
-     * When backend integration begins, replace this section
-     * with the real HTTP request.
-     */
+    final uri = Uri.parse('$_baseUrl/classifications/');
 
-    await Future.delayed(
-      const Duration(seconds: 3),
+    final request = http.MultipartRequest('POST', uri);
+
+    // Add JWT to the request.
+    request.headers.addAll(AuthService.authorizationHeaders);
+
+    // Detect MIME type from filename.
+    final contentType = _getContentType(image.fileName);
+
+    request.files.add(
+      http.MultipartFile.fromBytes(
+        'file',
+        image.bytes,
+        filename: image.fileName,
+        contentType: contentType,
+      ),
     );
 
-    return ClassificationResult.mock();
+    // Send image to FastAPI.
+    final streamedResponse = await request.send().timeout(
+      const Duration(seconds: 60),
+    );
+
+    final response = await http.Response.fromStream(streamedResponse);
+
+    // Handle expired or invalid JWT.
+    if (response.statusCode == 401) {
+      throw Exception(
+        'Your login session is invalid or expired. '
+        'Please log in again.',
+      );
+    }
+
+    // Handle other API errors.
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(
+        'Classification failed '
+        '(${response.statusCode}): '
+        '${response.body}',
+      );
+    }
+
+    // Decode FastAPI response.
+    final decoded = jsonDecode(response.body);
+
+    if (decoded is! Map) {
+      throw Exception('Invalid response received from backend.');
+    }
+
+    final json = Map<String, dynamic>.from(decoded);
+
+    return ClassificationResult.fromApiResponse(json);
+  }
+
+  // =====================================================
+  // DETECT IMAGE CONTENT TYPE
+  // =====================================================
+
+  MediaType _getContentType(String fileName) {
+    final extension = fileName.split('.').last.toLowerCase();
+
+    switch (extension) {
+      case 'png':
+        return MediaType('image', 'png');
+
+      case 'webp':
+        return MediaType('image', 'webp');
+
+      case 'jpeg':
+      case 'jpg':
+      default:
+        return MediaType('image', 'jpeg');
+    }
   }
 }

@@ -1,18 +1,22 @@
 import 'dart:io';
+
 import 'package:provider/provider.dart';
+
 import '../../models/classification_record.dart';
 import '../../providers/classification_provider.dart';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../../app/theme.dart';
 import '../../models/classification_result.dart';
-import '../../services/classification_service.dart';
+import '../../services/mobile_auth_service.dart';
+import '../../services/mobile_classification_api_service.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/auth_provider.dart';
 
 import '../../data/seaweed_data.dart';
 import '../../models/seaweed_info.dart';
-
 
 class ClassificationScreen extends StatefulWidget {
   const ClassificationScreen({super.key});
@@ -23,8 +27,8 @@ class ClassificationScreen extends StatefulWidget {
 
 class _ClassificationScreenState extends State<ClassificationScreen> {
   final ImagePicker _imagePicker = ImagePicker();
-  final ClassificationService _classificationService =
-      const ClassificationService();
+  final MobileClassificationApiService _mobileClassificationApiService =
+      const MobileClassificationApiService();
   XFile? _selectedImage;
   ClassificationResult? _result;
   bool _isPickingImage = false;
@@ -70,17 +74,13 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
           _classificationError = null;
           _isSaved = false;
         });
-        context
-            .read<ClassificationProvider>()
-            .setUnsavedResult(false);
+        context.read<ClassificationProvider>().setUnsavedResult(false);
       }
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Unable to select image: $error',
-          ),
+          content: Text('Unable to select image: $error'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -95,27 +95,51 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
 
   Future<void> _classifyImage() async {
     final image = _selectedImage;
-    if (image == null || _isClassifying) return;
+    if (image == null || _isClassifying || _isSaving) return;
+
     setState(() {
       _isClassifying = true;
       _classificationError = null;
       _result = null;
       _isSaved = false;
     });
+
     try {
-      final result = await _classificationService.classifyImage(image);
+      final response = await _mobileClassificationApiService.classifyImage(
+        image: image,
+      );
+
+      final rawResult = response['result'];
+
+      if (rawResult is! Map) {
+        throw const MobileAuthException(
+          'FastAPI returned an invalid classification response.',
+        );
+      }
+
+      final resultData = Map<String, dynamic>.from(rawResult);
+
+      final result = ClassificationResult.fromJson({
+        ...resultData,
+        'summary': resultData['message'] ?? 'Classification successful.',
+      });
+
       if (!mounted) return;
+
       setState(() {
         _result = result;
       });
+
       context.read<ClassificationProvider>().setUnsavedResult(true);
-    } on ClassificationServiceException catch (error) {
+    } on MobileAuthException catch (error) {
       if (!mounted) return;
+
       setState(() {
         _classificationError = error.message;
       });
     } catch (_) {
       if (!mounted) return;
+
       setState(() {
         _classificationError =
             'An unexpected error occurred. Please try again.';
@@ -132,39 +156,79 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
   Future<void> _saveResult() async {
     final result = _result;
     final image = _selectedImage;
-    if (result == null ||
-        image == null ||
-        _isSaving ||
-        _isSaved) {
+
+    if (result == null || image == null || _isSaving || _isSaved) {
       return;
     }
+
+    final classificationId = result.classificationId;
+
+    if (classificationId == null || classificationId <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No valid classification ID was returned by FastAPI.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isSaving = true;
     });
-    await Future.delayed(
-      const Duration(milliseconds: 500),
-    );
-    if (!mounted) return;
-    final record = ClassificationRecord(
-      id: DateTime.now().millisecondsSinceEpoch,
-      imagePath: image.path,
-      result: result,
-      createdAt: DateTime.now(),
-    );
-    context.read<ClassificationProvider>().addRecord(record);
-    context.read<ClassificationProvider>().setUnsavedResult(false);
-    setState(() {
-      _isSaving = false;
-      _isSaved = true;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Classification saved to history.',
+
+    try {
+      await _mobileClassificationApiService.saveClassification(
+        classificationId: classificationId,
+      );
+
+      if (!mounted) return;
+
+      final record = ClassificationRecord(
+        id: classificationId,
+        imagePath: image.path,
+        result: result,
+        createdAt: DateTime.now(),
+      );
+
+      context.read<ClassificationProvider>().addRecord(record);
+      context.read<ClassificationProvider>().setUnsavedResult(false);
+
+      setState(() {
+        _isSaved = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Classification saved to history.'),
+          backgroundColor: AppColors.success,
         ),
-        backgroundColor: AppColors.success,
-      ),
-    );
+      );
+    } on MobileAuthException catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to save classification. Please try again.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
   }
 
   void _uploadNext() {
@@ -190,10 +254,10 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
   }
 
   @override
-    void dispose() {
-      _carouselController.dispose();
-      super.dispose();
-    }
+  void dispose() {
+    _carouselController.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -278,9 +342,7 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
           decoration: BoxDecoration(
             color: AppColors.primaryDark,
             borderRadius: BorderRadius.circular(AppRadius.medium),
-            border: Border.all(
-              color: AppColors.primary,
-            ),
+            border: Border.all(color: AppColors.primary),
           ),
           child: const Icon(
             Icons.image_search_outlined,
@@ -296,17 +358,15 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
               Text(
                 'Classify Seaweed',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 'Capture or upload a seaweed image for species classification.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textSecondary,
-                      height: 1.4,
-                    ),
+                style: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(color: AppColors.textSecondary, height: 1.4),
               ),
             ],
           ),
@@ -315,37 +375,26 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
     );
   }
 
-  Widget _buildGreetingSection(
-    BuildContext context,
-  ) {
-    final firstName =
-        context.watch<AuthProvider>().firstName;
+  Widget _buildGreetingSection(BuildContext context) {
+    final firstName = context.watch<AuthProvider>().firstName;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Hello, $firstName',
-          style: Theme.of(context)
-              .textTheme
-              .titleLarge
-              ?.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w700,
-              ),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w700,
+          ),
         ),
 
         const SizedBox(height: 6),
 
         Text(
           'Ready to check your seaweed quality today?',
-          style: Theme.of(context)
-              .textTheme
-              .bodyMedium
-              ?.copyWith(
-                color: AppColors.textSecondary,
-                height: 1.4,
-              ),
+          style: Theme.of(context).textTheme.bodyMedium
+              ?.copyWith(color: AppColors.textSecondary, height: 1.4),
         ),
       ],
     );
@@ -353,15 +402,11 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
 
   // Carousel Feature Section
 
-  Widget _buildCarouselSection(
-    BuildContext context,
-  ) {
+  Widget _buildCarouselSection(BuildContext context) {
     return Column(
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(
-            AppRadius.large,
-          ),
+          borderRadius: BorderRadius.circular(AppRadius.large),
           child: AspectRatio(
             aspectRatio: 1600 / 700,
             child: PageView.builder(
@@ -377,11 +422,7 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
                   _carouselImages[index],
                   width: double.infinity,
                   fit: BoxFit.cover,
-                  errorBuilder: (
-                    context,
-                    error,
-                    stackTrace,
-                  ) {
+                  errorBuilder: (context, error, stackTrace) {
                     return Container(
                       color: AppColors.surfaceDark,
                       child: const Center(
@@ -393,14 +434,10 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
                               color: AppColors.textMuted,
                               size: 34,
                             ),
-                            SizedBox(
-                              height: AppSpacing.sm,
-                            ),
+                            SizedBox(height: AppSpacing.sm),
                             Text(
                               'Carousel image unavailable',
-                              style: TextStyle(
-                                color: AppColors.textMuted,
-                              ),
+                              style: TextStyle(color: AppColors.textMuted),
                             ),
                           ],
                         ),
@@ -417,32 +454,20 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
 
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(
-            _carouselImages.length,
-            (index) {
-              final isActive =
-                  index == _currentCarouselIndex;
+          children: List.generate(_carouselImages.length, (index) {
+            final isActive = index == _currentCarouselIndex;
 
-              return AnimatedContainer(
-                duration: const Duration(
-                  milliseconds: 180,
-                ),
-                margin: const EdgeInsets.symmetric(
-                  horizontal: 3,
-                ),
-                width: isActive ? 18 : 7,
-                height: 7,
-                decoration: BoxDecoration(
-                  color: isActive
-                      ? AppColors.primary
-                      : AppColors.borderLight,
-                  borderRadius: BorderRadius.circular(
-                    999,
-                  ),
-                ),
-              );
-            },
-          ),
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: isActive ? 18 : 7,
+              height: 7,
+              decoration: BoxDecoration(
+                color: isActive ? AppColors.primary : AppColors.borderLight,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            );
+          }),
         ),
       ],
     );
@@ -458,9 +483,7 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadius.large),
-        border: Border.all(
-          color: AppColors.borderLight,
-        ),
+        border: Border.all(color: AppColors.borderLight),
       ),
       child: Column(
         children: [
@@ -470,9 +493,7 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
             decoration: BoxDecoration(
               color: AppColors.surfaceDark,
               shape: BoxShape.circle,
-              border: Border.all(
-                color: AppColors.primary,
-              ),
+              border: Border.all(color: AppColors.primary),
             ),
             child: const Icon(
               Icons.add_photo_alternate_outlined,
@@ -485,18 +506,16 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
             'Upload Seaweed Image',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                ),
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
             'Choose an image from your gallery or capture a new photo using your camera.',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                  height: 1.5,
-                ),
+            style: Theme.of(context).textTheme.bodyMedium
+                ?.copyWith(color: AppColors.textSecondary, height: 1.5),
           ),
           const SizedBox(height: AppSpacing.xl),
           SizedBox(
@@ -509,13 +528,9 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                      ),
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(
-                      Icons.camera_alt_outlined,
-                    ),
+                  : const Icon(Icons.camera_alt_outlined),
               label: const Text('Take Photo'),
             ),
           ),
@@ -526,12 +541,8 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
               onPressed: _isPickingImage
                   ? null
                   : () => _pickImage(ImageSource.gallery),
-              icon: const Icon(
-                Icons.photo_library_outlined,
-              ),
-              label: const Text(
-                'Choose from Gallery',
-              ),
+              icon: const Icon(Icons.photo_library_outlined),
+              label: const Text('Choose from Gallery'),
             ),
           ),
         ],
@@ -546,9 +557,7 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadius.large),
-        border: Border.all(
-          color: AppColors.primary,
-        ),
+        border: Border.all(color: AppColors.primary),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -563,11 +572,7 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
                     File(_selectedImage!.path),
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (
-                      context,
-                      error,
-                      stackTrace,
-                    ) {
+                    errorBuilder: (context, error, stackTrace) {
                       return Container(
                         color: AppColors.surfaceDark,
                         child: const Center(
@@ -579,9 +584,7 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
                                 color: AppColors.error,
                                 size: 44,
                               ),
-                              SizedBox(
-                                height: AppSpacing.sm,
-                              ),
+                              SizedBox(height: AppSpacing.sm),
                               Text(
                                 'Unable to display image',
                                 style: TextStyle(
@@ -595,122 +598,114 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
                     },
                   ),
                 ),
-                
+
                 if (!_isClassifying)
-                Positioned(
-                  top: AppSpacing.sm,
-                  left: AppSpacing.sm,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.sm,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceDark.withValues(
-                        alpha: 0.90,
+                  Positioned(
+                    top: AppSpacing.sm,
+                    left: AppSpacing.sm,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: 6,
                       ),
-                      borderRadius: BorderRadius.circular(
-                        AppRadius.large,
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceDark.withValues(alpha: 0.90),
+                        borderRadius: BorderRadius.circular(AppRadius.large),
+                        border: Border.all(color: AppColors.borderLight),
                       ),
-                      border: Border.all(
-                        color: AppColors.borderLight,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _result != null
-                              ? Icons.check_circle_outline
-                              : Icons.image_outlined,
-                          color: _result != null
-                              ? AppColors.success
-                              : AppColors.primary,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          _result != null
-                              ? 'Analysis Complete'
-                              : 'Ready for Classification',
-                          style: TextStyle(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _result != null
+                                ? Icons.check_circle_outline
+                                : Icons.image_outlined,
                             color: _result != null
                                 ? AppColors.success
-                                : AppColors.textPrimary,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                                : AppColors.primary,
+                            size: 16,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 5),
+                          Text(
+                            _result != null
+                                ? 'Analysis Complete'
+                                : 'Ready for Classification',
+                            style: TextStyle(
+                              color: _result != null
+                                  ? AppColors.success
+                                  : AppColors.textPrimary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
 
                 if (_isClassifying)
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(
-                        alpha: 0.66,
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.66),
                       ),
-                    ),
-                    child: Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.lg,
-                          vertical: AppSpacing.lg,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceDark.withValues(
-                            alpha: 0.78,
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.lg,
+                            vertical: AppSpacing.lg,
                           ),
-                          borderRadius: BorderRadius.circular(
-                            AppRadius.large,
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceDark.withValues(
+                              alpha: 0.78,
+                            ),
+                            borderRadius: BorderRadius.circular(
+                              AppRadius.large,
+                            ),
+                            border: Border.all(color: AppColors.borderLight),
                           ),
-                          border: Border.all(
-                            color: AppColors.borderLight,
-                          ),
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const SizedBox(
-                              width: 36,
-                              height: 36,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 3,
-                                color: AppColors.primary,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const SizedBox(
+                                width: 36,
+                                height: 36,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 3,
+                                  color: AppColors.primary,
+                                ),
                               ),
-                            ),
 
-                            const SizedBox(height: AppSpacing.md),
+                              const SizedBox(height: AppSpacing.md),
 
-                            Text(
-                              'ANALYZING...',
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    color: AppColors.textPrimary,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 1.1,
-                                  ),
-                            ),
+                              Text(
+                                'ANALYZING...',
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      color: AppColors.textPrimary,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 1.1,
+                                    ),
+                              ),
 
-                            const SizedBox(height: AppSpacing.sm),
+                              const SizedBox(height: AppSpacing.sm),
 
-                            Text(
-                              'Processing the uploaded image',
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: AppColors.textSecondary,
-                                    height: 1.4,
-                                  ),
-                            ),
-                          ],
+                              Text(
+                                'Processing the uploaded image',
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      color: AppColors.textSecondary,
+                                      height: 1.4,
+                                    ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -721,21 +716,19 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
                 _result != null
                     ? Icons.check_circle_outline
                     : Icons.image_outlined,
-                color: _result != null
-                    ? AppColors.success
-                    : AppColors.primary,
+                color: _result != null ? AppColors.success : AppColors.primary,
                 size: 20,
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
-                   _result != null
-                    ? 'Analysis complete'
-                    : 'Ready for classification',
+                  _result != null
+                      ? 'Analysis complete'
+                      : 'Ready for classification',
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -745,34 +738,26 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed:
-                      _isPickingImage || _isClassifying || _isSaving
-                          ? null
-                          : () => _pickImage(ImageSource.gallery),
-                  icon: const Icon(
-                    Icons.swap_horiz_outlined,
-                  ),
-                  label: const Text(
-                    'Change Image',
-                  ),
+                  onPressed: _isPickingImage || _isClassifying || _isSaving
+                      ? null
+                      : () => _pickImage(ImageSource.gallery),
+                  icon: const Icon(Icons.swap_horiz_outlined),
+                  label: const Text('Change Image'),
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed:
-                      _isClassifying || _isSaving
-                          ? null
-                          : _removeSelectedImage,
+                  onPressed: _isClassifying || _isSaving
+                      ? null
+                      : _removeSelectedImage,
                   icon: const Icon(
                     Icons.delete_outline,
                     color: AppColors.error,
                   ),
                   label: const Text(
                     'Remove',
-                    style: TextStyle(
-                      color: AppColors.error,
-                    ),
+                    style: TextStyle(color: AppColors.error),
                   ),
                 ),
               ),
@@ -785,25 +770,16 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed:
-                    _isClassifying || _isSaving
-                        ? null
-                        : _classifyImage,
+                onPressed: _isClassifying || _isSaving ? null : _classifyImage,
                 icon: _isClassifying
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                        ),
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(
-                        Icons.auto_awesome_outlined,
-                      ),
+                    : const Icon(Icons.auto_awesome_outlined),
                 label: Text(
-                  _isClassifying
-                      ? 'Analyzing...'
-                      : 'Classify Seaweed',
+                  _isClassifying ? 'Analyzing...' : 'Classify Seaweed',
                 ),
               ),
             ),
@@ -819,20 +795,17 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
     required bool showImageQuality,
   }) {
     final result = _result!;
-    final SeaweedInfo? seaweed =
-      SeaweedData.findByClassificationLabel(result.species);
+    final SeaweedInfo? seaweed = SeaweedData.findByClassificationLabel(
+      result.species,
+    );
 
-    return
-    Container(
+    return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadius.large),
-        border: Border.all(
-          color: AppColors.primary,
-          width: 1.2,
-        ),
+        border: Border.all(color: AppColors.primary, width: 1.2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -845,12 +818,8 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
                 height: 44,
                 decoration: BoxDecoration(
                   color: AppColors.primaryDark,
-                  borderRadius: BorderRadius.circular(
-                    AppRadius.medium,
-                  ),
-                  border: Border.all(
-                    color: AppColors.primary,
-                  ),
+                  borderRadius: BorderRadius.circular(AppRadius.medium),
+                  border: Border.all(color: AppColors.primary),
                 ),
                 child: const Icon(
                   Icons.fact_check_outlined,
@@ -869,26 +838,20 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
                       'Classification Result',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.w700,
-                          ),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
 
                     const SizedBox(height: 3),
 
                     Text(
                       'Seaweed image analysis completed',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(
-                            color: AppColors.textSecondary,
-                            height: 1.4,
-                          ),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                        height: 1.4,
+                      ),
                     ),
 
                     const SizedBox(height: AppSpacing.sm),
@@ -900,12 +863,8 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
                       ),
                       decoration: BoxDecoration(
                         color: AppColors.primaryDark,
-                        borderRadius: BorderRadius.circular(
-                          AppRadius.large,
-                        ),
-                        border: Border.all(
-                          color: AppColors.primary,
-                        ),
+                        borderRadius: BorderRadius.circular(AppRadius.large),
+                        border: Border.all(color: AppColors.primary),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
@@ -932,23 +891,16 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
               ),
             ],
           ),
-        const SizedBox(height: AppSpacing.lg),
-        const Divider(
-          color: AppColors.borderLight,
-          height: 1,
-        ),
-        const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: AppSpacing.lg),
+          const Divider(color: AppColors.borderLight, height: 1),
+          const SizedBox(height: AppSpacing.lg),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
               color: AppColors.surfaceDark,
-              borderRadius: BorderRadius.circular(
-                AppRadius.medium,
-              ),
-              border: Border.all(
-                color: AppColors.borderLight,
-              ),
+              borderRadius: BorderRadius.circular(AppRadius.medium),
+              border: Border.all(color: AppColors.borderLight),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -956,23 +908,21 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
                 Text(
                   'Detected Species',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textMuted,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    color: AppColors.textMuted,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   result.species,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
             ),
           ),
-
-          
 
           const SizedBox(height: AppSpacing.md),
 
@@ -1018,8 +968,7 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
             const SizedBox(height: AppSpacing.sm),
           ],
 
-          if (showConfidence ||
-              (showImageQuality && result.hasImageQuality))
+          if (showConfidence || (showImageQuality && result.hasImageQuality))
             LayoutBuilder(
               builder: (context, constraints) {
                 final useSingleColumn = constraints.maxWidth < 300;
@@ -1035,21 +984,20 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
 
                 final imageQualityCard =
                     showImageQuality && result.hasImageQuality
-                        ? _buildResultMetricCard(
-                            context,
-                            icon: Icons.image_outlined,
-                            label: 'Image Quality',
-                            value: result.imageQuality!,
-                          )
-                        : null;
+                    ? _buildResultMetricCard(
+                        context,
+                        icon: Icons.image_outlined,
+                        label: 'Image Quality',
+                        value: result.imageQuality!,
+                      )
+                    : null;
 
                 if (useSingleColumn) {
                   return Column(
                     children: [
                       ?confidenceCard,
 
-                      if (confidenceCard != null &&
-                          imageQualityCard != null)
+                      if (confidenceCard != null && imageQualityCard != null)
                         const SizedBox(height: AppSpacing.sm),
 
                       ?imageQualityCard,
@@ -1060,11 +1008,9 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (confidenceCard != null)
-                      Expanded(child: confidenceCard),
+                    if (confidenceCard != null) Expanded(child: confidenceCard),
 
-                    if (confidenceCard != null &&
-                        imageQualityCard != null)
+                    if (confidenceCard != null && imageQualityCard != null)
                       const SizedBox(width: AppSpacing.sm),
 
                     if (imageQualityCard != null)
@@ -1074,254 +1020,222 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
               },
             ),
 
-            if (seaweed != null) ...[
-              const SizedBox(height: AppSpacing.md),
+          if (seaweed != null) ...[
+            const SizedBox(height: AppSpacing.md),
 
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceDark,
-                  borderRadius: BorderRadius.circular(
-                    AppRadius.medium,
-                  ),
-                  border: Border.all(
-                    color: AppColors.borderLight,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Seaweed Information',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w700,
-                      ),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceDark,
+                borderRadius: BorderRadius.circular(AppRadius.medium),
+                border: Border.all(color: AppColors.borderLight),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Seaweed Information',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w700,
                     ),
+                  ),
 
+                  const SizedBox(height: AppSpacing.md),
+
+                  Text(
+                    'Common Name',
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: AppColors.textMuted),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    seaweed.englishName,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+
+                  const SizedBox(height: AppSpacing.sm),
+
+                  Text(
+                    'Local Name',
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: AppColors.textMuted),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    seaweed.bisayaName,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+
+                  const SizedBox(height: AppSpacing.sm),
+
+                  Text(
+                    'Scientific Name',
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: AppColors.textMuted),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    seaweed.scientificName,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textPrimary,
+                      fontStyle: FontStyle.italic,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          if (result.hasSummary) ...[
+            const SizedBox(height: AppSpacing.md),
+
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceDark,
+                borderRadius: BorderRadius.circular(AppRadius.medium),
+                border: Border.all(color: AppColors.borderLight),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.description_outlined,
+                        color: AppColors.primary,
+                        size: 21,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Text(
+                        'Summary',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: AppSpacing.md),
+
+                  Text(
+                    result.summary!,
+                    style: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(color: AppColors.textSecondary, height: 1.5),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          if (result.hasObservedCharacteristics) ...[
+            const SizedBox(height: AppSpacing.md),
+
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceDark,
+                borderRadius: BorderRadius.circular(AppRadius.medium),
+                border: Border.all(color: AppColors.borderLight),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.visibility_outlined,
+                        color: AppColors.primary,
+                        size: 21,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Text(
+                        'Observed Characteristics',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  if (result.hasColor) ...[
                     const SizedBox(height: AppSpacing.md),
-
-                    Text(
-                      'Common Name',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textMuted,
-                      ),
+                    _buildCharacteristicCard(
+                      context,
+                      icon: Icons.palette_outlined,
+                      label: 'Color',
+                      value: result.color!,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      seaweed.englishName,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                  ],
 
+                  if (result.hasVisualTexture) ...[
                     const SizedBox(height: AppSpacing.sm),
-
-                    Text(
-                      'Local Name',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textMuted,
-                      ),
+                    _buildCharacteristicCard(
+                      context,
+                      icon: Icons.texture_outlined,
+                      label: 'Visual Texture',
+                      value: result.visualTexture!,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      seaweed.bisayaName,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                  ],
 
+                  if (result.hasSurfaceCondition) ...[
                     const SizedBox(height: AppSpacing.sm),
-
-                    Text(
-                      'Scientific Name',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      seaweed.scientificName,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textPrimary,
-                        fontStyle: FontStyle.italic,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    _buildCharacteristicCard(
+                      context,
+                      icon: Icons.layers_outlined,
+                      label: 'Surface Condition',
+                      value: result.surfaceCondition!,
                     ),
                   ],
-                ),
-              ),
-            ],
 
-            if (result.hasSummary) ...[
-              const SizedBox(height: AppSpacing.md),
-
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceDark,
-                  borderRadius: BorderRadius.circular(
-                    AppRadius.medium,
-                  ),
-                  border: Border.all(
-                    color: AppColors.borderLight,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.description_outlined,
-                          color: AppColors.primary,
-                          size: 21,
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Text(
-                          'Summary',
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                color: AppColors.textPrimary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: AppSpacing.md),
-
-                    Text(
-                      result.summary!,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textSecondary,
-                            height: 1.5,
-                          ),
+                  if (result.hasVisibleDefects) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    _buildCharacteristicCard(
+                      context,
+                      icon: Icons.report_problem_outlined,
+                      label: 'Visible Defects',
+                      value: result.visibleDefects!,
                     ),
                   ],
-                ),
+                ],
               ),
-            ],
+            ),
+          ],
 
-            if (result.hasObservedCharacteristics) ...[
-              const SizedBox(height: AppSpacing.md),
-
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceDark,
-                  borderRadius: BorderRadius.circular(
-                    AppRadius.medium,
-                  ),
-                  border: Border.all(
-                    color: AppColors.borderLight,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.visibility_outlined,
-                          color: AppColors.primary,
-                          size: 21,
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Text(
-                          'Observed Characteristics',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleSmall
-                              ?.copyWith(
-                                color: AppColors.textPrimary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                      ],
-                    ),
-
-                    if (result.hasColor) ...[
-                      const SizedBox(height: AppSpacing.md),
-                      _buildCharacteristicCard(
-                        context,
-                        icon: Icons.palette_outlined,
-                        label: 'Color',
-                        value: result.color!,
-                      ),
-                    ],
-
-                    if (result.hasVisualTexture) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      _buildCharacteristicCard(
-                        context,
-                        icon: Icons.texture_outlined,
-                        label: 'Visual Texture',
-                        value: result.visualTexture!,
-                      ),
-                    ],
-
-                    if (result.hasSurfaceCondition) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      _buildCharacteristicCard(
-                        context,
-                        icon: Icons.layers_outlined,
-                        label: 'Surface Condition',
-                        value: result.surfaceCondition!,
-                      ),
-                    ],
-
-                    if (result.hasVisibleDefects) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      _buildCharacteristicCard(
-                        context,
-                        icon: Icons.report_problem_outlined,
-                        label: 'Visible Defects',
-                        value: result.visibleDefects!,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          
           const SizedBox(height: AppSpacing.xl),
-          const Divider(
-            color: AppColors.borderLight,
-          ),
+          const Divider(color: AppColors.borderLight),
           const SizedBox(height: AppSpacing.lg),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _isSaving
-                      ? null
-                      : _uploadNext,
-                  icon: const Icon(
-                    Icons.add_photo_alternate_outlined,
-                  ),
-                  label: const Text(
-                    'Upload Next',
-                  ),
+                  onPressed: _isSaving ? null : _uploadNext,
+                  icon: const Icon(Icons.add_photo_alternate_outlined),
+                  label: const Text('Upload Next'),
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: _isSaving || _isSaved
-                      ? null
-                      : _saveResult,
+                  onPressed: _isSaving || _isSaved ? null : _saveResult,
                   icon: _isSaving
                       ? const SizedBox(
                           width: 18,
                           height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                          ),
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : Icon(
                           _isSaved
@@ -1332,8 +1246,8 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
                     _isSaving
                         ? 'Saving...'
                         : _isSaved
-                            ? 'Saved'
-                            : 'Save',
+                        ? 'Saved'
+                        : 'Save',
                   ),
                 ),
               ),
@@ -1352,42 +1266,31 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
   }) {
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(
-        minHeight: 118,
-      ),
+      constraints: const BoxConstraints(minHeight: 118),
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: AppColors.surfaceDark,
-        borderRadius: BorderRadius.circular(
-          AppRadius.medium,
-        ),
-        border: Border.all(
-          color: AppColors.borderLight,
-        ),
+        borderRadius: BorderRadius.circular(AppRadius.medium),
+        border: Border.all(color: AppColors.borderLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            icon,
-            color: AppColors.primary,
-            size: 22,
-          ),
+          Icon(icon, color: AppColors.primary, size: 22),
           const SizedBox(height: AppSpacing.md),
           Text(
             label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textMuted,
-                ),
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: AppColors.textMuted),
           ),
           const SizedBox(height: 4),
           Text(
             value,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w700,
-                ),
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),
@@ -1395,76 +1298,59 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
   }
 
   Widget _buildCharacteristicCard(
-  BuildContext context, {
-  required IconData icon,
-  required String label,
-  required String value,
-}) {
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(AppSpacing.md),
-    decoration: BoxDecoration(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(
-        AppRadius.medium,
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.medium),
+        border: Border.all(color: AppColors.borderLight),
       ),
-      border: Border.all(
-        color: AppColors.borderLight,
-      ),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: AppColors.primaryDark,
-            borderRadius: BorderRadius.circular(
-              AppRadius.medium,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: AppColors.primaryDark,
+              borderRadius: BorderRadius.circular(AppRadius.medium),
+            ),
+            child: Icon(icon, color: AppColors.primary, size: 19),
+          ),
+
+          const SizedBox(width: AppSpacing.md),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: AppColors.textMuted),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
           ),
-          child: Icon(
-            icon,
-            color: AppColors.primary,
-            size: 19,
-          ),
-        ),
-
-        const SizedBox(width: AppSpacing.md),
-
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(
-                      color: AppColors.textMuted,
-                    ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w600,
-                      height: 1.4,
-                    ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
   Widget _buildErrorCard(BuildContext context) {
     return Container(
@@ -1473,24 +1359,18 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
       decoration: BoxDecoration(
         color: AppColors.surfaceDark,
         borderRadius: BorderRadius.circular(AppRadius.medium),
-        border: Border.all(
-          color: AppColors.error,
-        ),
+        border: Border.all(color: AppColors.error),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.error_outline,
-            color: AppColors.error,
-          ),
+          const Icon(Icons.error_outline, color: AppColors.error),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
               _classificationError!,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
+              style: Theme.of(context).textTheme.bodyMedium
+                  ?.copyWith(color: AppColors.textPrimary),
             ),
           ),
         ],
@@ -1505,9 +1385,7 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
       decoration: BoxDecoration(
         color: AppColors.surfaceDark,
         borderRadius: BorderRadius.circular(AppRadius.large),
-        border: Border.all(
-          color: AppColors.borderLight,
-        ),
+        border: Border.all(color: AppColors.borderLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1523,22 +1401,16 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
               Text(
                 'For better results',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          _buildTip(
-            context,
-            'Make sure the seaweed is clearly visible.',
-          ),
+          _buildTip(context, 'Make sure the seaweed is clearly visible.'),
           const SizedBox(height: AppSpacing.sm),
-          _buildTip(
-            context,
-            'Use good lighting and avoid heavy shadows.',
-          ),
+          _buildTip(context, 'Use good lighting and avoid heavy shadows.'),
           const SizedBox(height: AppSpacing.sm),
           _buildTip(
             context,
@@ -1549,29 +1421,20 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
     );
   }
 
-  Widget _buildTip(
-    BuildContext context,
-    String text,
-  ) {
+  Widget _buildTip(BuildContext context, String text) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
           padding: EdgeInsets.only(top: 5),
-          child: Icon(
-            Icons.circle,
-            color: AppColors.primary,
-            size: 6,
-          ),
+          child: Icon(Icons.circle, color: AppColors.primary, size: 6),
         ),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Text(
             text,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
-                  height: 1.5,
-                ),
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(color: AppColors.textSecondary, height: 1.5),
           ),
         ),
       ],

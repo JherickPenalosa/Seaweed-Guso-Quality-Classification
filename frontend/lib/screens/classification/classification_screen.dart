@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 import '../../app/theme.dart';
 import '../../widgets/classification/image_upload_area.dart';
@@ -20,6 +23,7 @@ import '../../providers/connectivity_provider.dart';
 import '../../widgets/common/offline_banner.dart';
 
 import '../../services/classification_service.dart';
+import '../../services/auth_service.dart';
 
 class ClassificationScreen extends StatefulWidget {
   const ClassificationScreen({super.key});
@@ -62,6 +66,7 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
   ];
 
   void _handleImageChanged(SelectedImage? image) {
+    if (_isSaving) return;
     setState(() {
       _selectedImage = image;
       _result = null;
@@ -71,10 +76,12 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
       _errorMessage = null;
     });
 
+    context.read<ClassificationProvider>().setUnsavedResult(false);
     context.read<ClassificationProvider>().clearSelectedRecord();
   }
 
   void _uploadNext() {
+    if (_isSaving) return;
     final settings = context.read<SettingsProvider>();
 
     if (_hasResult && !_isSaved && settings.confirmBeforeDiscard) {
@@ -85,62 +92,116 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
     _resetClassification();
   }
 
+  // Persist the classification in PostgreSQL before updating the local UI.
   Future<void> _saveResult() async {
-    if (!_hasResult || _isSaved || _isSaving || _selectedImage == null) {
+    if (!_hasResult || _isSaved || _isSaving || _selectedImage == null) return;
+
+    final image = _selectedImage!;
+    final result = _result!;
+    final classificationId = result.classificationId;
+
+    // Rejected/uncertain images do not have a database classification ID.
+    if (classificationId == null || classificationId <= 0) {
+      setState(() {
+        _saveFailed = true;
+        _errorMessage =
+            'This image has no savable classification. '
+            'Please try another clear guso image.';
+      });
+      return;
+    }
+
+    if (!AuthService.hasAccessToken) {
+      setState(() {
+        _saveFailed = true;
+        _errorMessage = 'Your login session is missing. Please log in again.';
+      });
       return;
     }
 
     setState(() {
       _isSaving = true;
       _saveFailed = false;
+      _errorMessage = null;
     });
 
     try {
+      // Use the same environment-configurable backend URL as image classification.
+      const baseUrl = String.fromEnvironment(
+        'GUSO_API_BASE_URL',
+        defaultValue: 'http://127.0.0.1:8000',
+      );
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/classifications/$classificationId/save'),
+            headers: AuthService.authorizationHeaders,
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 401) {
+        throw Exception('Your session expired. Please log in again.');
+      }
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        String detail = 'Server returned HTTP ${response.statusCode}.';
+        try {
+          final decoded = jsonDecode(response.body);
+          if (decoded is Map && decoded['detail'] is String) {
+            detail = decoded['detail'] as String;
+          }
+        } on FormatException {
+          // Keep the safe status-code message for non-JSON responses.
+        }
+        throw Exception(detail);
+      }
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map ||
+          decoded['is_saved'] != true ||
+          decoded['classification_id'] != classificationId) {
+        throw const FormatException(
+          'The backend did not confirm saving this classification.',
+        );
+      }
+
+      if (!mounted) return;
+
+      // The server ID—not a temporary timestamp—is the history record ID.
       final record = ClassificationRecord(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
-        fileName: _selectedImage!.fileName,
-        imageBytes: _selectedImage!.bytes,
-        result: _result!,
+        id: classificationId.toString(),
+        fileName: image.fileName,
+        imageBytes: image.bytes,
+        result: result,
         createdAt: DateTime.now(),
       );
-
       context.read<ClassificationProvider>().addRecord(record);
-
-      if (!mounted) {
-        return;
-      }
+      context.read<ClassificationProvider>().setUnsavedResult(false);
 
       setState(() {
         _isSaved = true;
         _saveFailed = false;
       });
-
-      context.read<ClassificationProvider>().setUnsavedResult(false);
-
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Classification record saved successfully.'),
-          duration: Duration(seconds: 2),
-        ),
+        const SnackBar(content: Text('Classification saved to History.')),
       );
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-
+    } catch (error) {
+      if (!mounted) return;
+      final message = error
+          .toString()
+          .replaceFirst('Exception: ', '')
+          .replaceFirst('FormatException: ', '');
       setState(() {
         _saveFailed = true;
+        _errorMessage = 'Could not save classification: $message';
       });
     } finally {
       if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
+        setState(() => _isSaving = false);
       }
     }
   }
 
   void _resetClassification() {
+    if (_isSaving) return;
     setState(() {
       _selectedImage = null;
       _result = null;
@@ -207,7 +268,7 @@ class _ClassificationScreenState extends State<ClassificationScreen> {
       return;
     }
 
-    if (!_hasImage || _isAnalyzing) {
+    if (!_hasImage || _isAnalyzing || _isSaving) {
       return;
     }
 
