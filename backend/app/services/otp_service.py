@@ -1,3 +1,14 @@
+"""One-time account verification for gUSo: SMS and email.
+
+Each delivery method gets its own OTP purpose and verified flag. An email
+verification never marks a phone number verified, and vice versa.
+
+This module does not send messages itself. API routes must authenticate the
+account holder before calling these functions, then supply the appropriate
+trusted delivery callback:
+    contact_verification -> send_verification_sms
+    email_verification   -> send_verification_email
+"""
 
 from datetime import datetime, timezone
 from typing import Callable
@@ -15,7 +26,6 @@ from app.core.otp import (
     OTP_RESEND_COOLDOWN_SECONDS,
     OTP_EXPIRATION_MINUTES,
 )
-
 from app.database.repository import (
     get_user_by_id,
     create_otp_record,
@@ -23,123 +33,91 @@ from app.database.repository import (
     increment_otp_attempts,
 )
 
-
 CONTACT_VERIFICATION = "contact_verification"
-# EMAIL_VERIFICATION = "email_verification"
+EMAIL_VERIFICATION = "email_verification"
+SUPPORTED_PURPOSES = (CONTACT_VERIFICATION, EMAIL_VERIFICATION)
 
 
-def utc_now():
-    return datetime.now(timezone.utc).replace(
-        tzinfo=None
-    )
+def utc_now() -> datetime:
+    """Current naive UTC time, matching the existing PostgreSQL columns."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
-# def validate_purpose(purpose: str):
-#     if purpose not in (
-#         CONTACT_VERIFICATION,
-#         EMAIL_VERIFICATION,
-#     ):
-#         raise ValueError("Invalid OTP purpose.")
-
-
-def validate_purpose(purpose: str):
-    if purpose != CONTACT_VERIFICATION:
+def validate_purpose(purpose: str) -> None:
+    if purpose not in SUPPORTED_PURPOSES:
         raise HTTPException(
-            status_code=400,
-            detail="Only mobile number verification is supported."
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported verification method.",
         )
 
 
-# def get_verification_destination(user, purpose):
-#     if purpose == CONTACT_VERIFICATION:
-#         return user.contact_num
-
-#     if purpose == EMAIL_VERIFICATION:
-#         if not user.email:
-#             raise HTTPException(
-#                 status_code=400,
-#                 detail="This account has no email address."
-#             )
-
-#         return user.email
-
-#     raise ValueError("Invalid OTP purpose.")
-
-
-def get_verification_destination(user, purpose):
+def get_verification_destination(user, purpose: str) -> str:
+    """Return only the contact method associated with the requested purpose."""
     validate_purpose(purpose)
-    return user.contact_num
+
+    if purpose == CONTACT_VERIFICATION:
+        if not user.contact_num or not user.contact_num.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This account has no registered contact number.",
+            )
+        return user.contact_num.strip()
+
+    if not user.email or not user.email.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This account has no registered email address.",
+        )
+    return user.email.strip()
 
 
-# =====================================================
-# GENERATE, STORE AND DISPATCH OTP
-# =====================================================
+def _already_verified(user, purpose: str) -> bool:
+    return bool(
+        user.contact_verified
+        if purpose == CONTACT_VERIFICATION
+        else user.email_verified
+    )
+
 
 def send_verification_otp(
     db: Session,
     user_id: int,
     purpose: str,
     deliver_code: Callable[[str, str], None],
-):
-    """
-    deliver_code(destination, code) must be a trusted
-    backend SMS/email sender.
+) -> dict:
+    """Generate, store a hash, and deliver a six-digit verification code.
 
-    Never return the plaintext OTP to Flutter.
+    `deliver_code` must be a trusted backend callback, not a URL or function
+    name selected by the client. Never return the plaintext OTP to Flutter.
     """
-
     validate_purpose(purpose)
-
     user = get_user_by_id(db, user_id)
-
     if user is None:
         raise HTTPException(
-            status_code=404,
-            detail="User not found."
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found.",
         )
 
-    destination = get_verification_destination(
-        user, purpose
-    )
-
-    # if purpose == CONTACT_VERIFICATION:
-    #     already_verified = user.contact_verified
-    # else:
-    #     already_verified = user.email_verified
-    
-    already_verified = user.contact_verified
-
-    if already_verified:
+    destination = get_verification_destination(user, purpose)
+    if _already_verified(user, purpose):
         raise HTTPException(
-            status_code=400,
-            detail="This contact method is already verified."
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This contact method is already verified.",
         )
 
-    previous_otp = get_pending_otp(
-        db, user_id, purpose
-    )
-
-    if (
-        previous_otp is not None
-        and previous_otp.created_at is not None
-    ):
-        elapsed = (
-            utc_now() - previous_otp.created_at
-        ).total_seconds()
-
+    previous = get_pending_otp(db, user_id, purpose)
+    if previous is not None and previous.created_at is not None:
+        elapsed_seconds = (utc_now() - previous.created_at).total_seconds()
         if (
-            elapsed < OTP_RESEND_COOLDOWN_SECONDS
-            and not is_otp_expired(
-                previous_otp.expires_at
-            )
+            elapsed_seconds < OTP_RESEND_COOLDOWN_SECONDS
+            and not is_otp_expired(previous.expires_at)
         ):
             raise HTTPException(
-                status_code=429,
-                detail="Please wait before requesting another OTP."
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Please wait before requesting another OTP.",
             )
 
     code = generate_otp()
-
     record = create_otp_record(
         db=db,
         user_id=user_id,
@@ -150,15 +128,19 @@ def send_verification_otp(
 
     try:
         deliver_code(destination, code)
-    except Exception:
-        # Invalidate an OTP that could not be delivered.
-        record.expires_at = utc_now()
-        db.commit()
-
+    except Exception as exc:
+        # A failed delivery must not leave an active OTP in PostgreSQL.
+        # Do not leak SMTP, SMS, passwords, addresses or codes to the client.
+        try:
+            record.expires_at = utc_now()
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
         raise HTTPException(
-            status_code=503,
-            detail="Unable to send verification code. Please try again."
-        )
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to send verification code. Please try again.",
+        ) from exc
 
     return {
         "message": "Verification code sent.",
@@ -166,82 +148,63 @@ def send_verification_otp(
     }
 
 
-# =====================================================
-# VERIFY OTP
-# =====================================================
-
 def verify_verification_otp(
     db: Session,
     user_id: int,
     purpose: str,
     code: str,
-):
+) -> dict:
+    """Validate a purpose-specific, single-use OTP and update account flags."""
     validate_purpose(purpose)
-
     user = get_user_by_id(db, user_id)
-
     if user is None:
         raise HTTPException(
-            status_code=404,
-            detail="User not found."
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found.",
         )
 
     get_verification_destination(user, purpose)
+    if _already_verified(user, purpose):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This contact method is already verified.",
+        )
 
-    record = get_pending_otp(
-        db, user_id, purpose
-    )
-
+    record = get_pending_otp(db, user_id, purpose)
     if record is None:
         raise HTTPException(
-            status_code=400,
-            detail="No pending verification code."
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No pending verification code.",
         )
 
     if is_otp_expired(record.expires_at):
         raise HTTPException(
-            status_code=400,
-            detail="Verification code has expired."
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification code has expired.",
         )
 
     if record.attempts >= OTP_MAX_ATTEMPTS:
         raise HTTPException(
-            status_code=429,
-            detail="Too many incorrect attempts. Request a new code."
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many incorrect attempts. Request a new code.",
         )
 
     if not verify_otp(code, record.otp_hash):
         increment_otp_attempts(db, record)
-
         raise HTTPException(
-            status_code=400,
-            detail="Incorrect verification code."
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect verification code.",
         )
 
-    # Mark the code as used.
     record.verified_at = utc_now()
+    if purpose == CONTACT_VERIFICATION:
+        user.contact_verified = True
+    else:
+        user.email_verified = True
 
-    # Update the relevant verification flag.
-    # if purpose == CONTACT_VERIFICATION:
-    #     user.contact_verified = True
-    # else:
-    #     user.email_verified = True
-
-    # # Contact is mandatory.
-    # # Email verification is required only if email exists.
-    # user.is_verified = (
-    #     bool(user.contact_verified)
-    #     and (
-    #         user.email is None
-    #         or bool(user.email_verified)
-    #     )
-    # )
-    
-    # Mobile OTP verification is required.
-    user.contact_verified = True
-
-    # Email is optional and does not require OTP.
-    user.is_verified = bool(user.contact_verified)
+    # One successfully verified method activates the account. The other
+    # method remains unverified until its own OTP is successfully checked.
+    user.is_verified = bool(user.contact_verified or user.email_verified)
 
     try:
         db.commit()
@@ -252,7 +215,7 @@ def verify_verification_otp(
 
     return {
         "message": "Verification successful.",
-        "contact_verified": user.contact_verified,
-        "email_verified": user.email_verified,
-        "is_verified": user.is_verified,
+        "contact_verified": bool(user.contact_verified),
+        "email_verified": bool(user.email_verified),
+        "is_verified": bool(user.is_verified),
     }

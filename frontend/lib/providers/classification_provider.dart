@@ -63,6 +63,7 @@ class ClassificationProvider extends ChangeNotifier {
     _selectedRecord = null;
     _isLoadingHistory = false;
     _historyError = null;
+    _hasUnsavedResult = false;
   }
 
   // Called by the History screen after login or when the user refreshes History.
@@ -214,4 +215,20 @@ class ClassificationProvider extends ChangeNotifier {
     _historyError = null;
     notifyListeners();
   }
+
+  bool _hasUnsavedResult = false;
+
+  bool get hasUnsavedResult =>
+      _isCurrentSession && _hasUnsavedResult;
+
+  void setUnsavedResult(bool value) {
+    _syncSession();
+    if (_hasUnsavedResult == value) return;
+    _hasUnsavedResult = value;
+    notifyListeners();
+  }
+
+
+  Future<void> retryHistory() => loadSavedHistory();
+
 }

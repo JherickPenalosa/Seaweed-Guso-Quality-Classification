@@ -5,6 +5,7 @@ import '../../app/theme.dart';
 import '../../data/seaweed_data.dart';
 import '../../models/seaweed_info.dart';
 import '../../providers/seaweed_language_provider.dart';
+import '../../widgets/common/empty_state.dart';
 import '../../widgets/seaweed_guide/seaweed_card.dart';
 import 'seaweed_detail_screen.dart';
 
@@ -12,14 +13,11 @@ class SeaweedGuideScreen extends StatefulWidget {
   const SeaweedGuideScreen({super.key});
 
   @override
-  State<SeaweedGuideScreen> createState() =>
-      _SeaweedGuideScreenState();
+  State<SeaweedGuideScreen> createState() => _SeaweedGuideScreenState();
 }
 
-class _SeaweedGuideScreenState
-    extends State<SeaweedGuideScreen> {
-  final TextEditingController _searchController =
-      TextEditingController();
+class _SeaweedGuideScreenState extends State<SeaweedGuideScreen> {
+  final TextEditingController _searchController = TextEditingController();
 
   String _searchQuery = '';
 
@@ -29,9 +27,7 @@ class _SeaweedGuideScreenState
     super.dispose();
   }
 
-  List<SeaweedInfo> _filteredSeaweeds(
-    SeaweedLanguage language,
-  ) {
+  List<SeaweedInfo> _filteredSeaweeds(SeaweedLanguage language) {
     final query = _searchQuery.trim().toLowerCase();
 
     if (query.isEmpty) {
@@ -39,20 +35,15 @@ class _SeaweedGuideScreenState
     }
 
     return SeaweedData.seaweeds.where((seaweed) {
-      final scientificName =
-          seaweed.scientificName.toLowerCase();
+      final scientificName = seaweed.scientificName.toLowerCase();
 
-      final localizedName =
-          seaweed.getName(language).toLowerCase();
+      final localizedName = seaweed.getName(language).toLowerCase();
 
-      final englishName =
-          seaweed.englishName.toLowerCase();
+      final englishName = seaweed.englishName.toLowerCase();
 
-      final filipinoName =
-          seaweed.filipinoName.toLowerCase();
+      final filipinoName = seaweed.filipinoName.toLowerCase();
 
-      final bisayaName =
-          seaweed.bisayaName.toLowerCase();
+      final bisayaName = seaweed.bisayaName.toLowerCase();
 
       return scientificName.contains(query) ||
           localizedName.contains(query) ||
@@ -64,35 +55,43 @@ class _SeaweedGuideScreenState
 
   @override
   Widget build(BuildContext context) {
-    final languageProvider =
-        context.watch<SeaweedLanguageProvider>();
+    final languageProvider = context.watch<SeaweedLanguageProvider>();
 
     final language = languageProvider.language;
 
-    final seaweeds =
-        _filteredSeaweeds(language);
+    final seaweeds = _filteredSeaweeds(language);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeader(),
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.fromARGB(255, 3, 78, 3),
+            Color(0xFF0B2D0D), 
+            Color(0xFF001000)
+          ],
+          stops: [0.0, 0.48, 1.0],
+        ),
+      ),
 
-          const SizedBox(height: 24),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(),
 
-          _buildControls(
-            context,
-            language,
-          ),
+            const SizedBox(height: 24),
 
-          const SizedBox(height: 28),
+            _buildControls(context, language),
 
-          if (seaweeds.isEmpty)
-            _buildEmptySearch()
-          else
-            _buildGrid(seaweeds),
-        ],
+            const SizedBox(height: 28),
+
+            if (seaweeds.isEmpty) _buildEmptySearch() else _buildGrid(seaweeds),
+          ],
+        ),
       ),
     );
   }
@@ -103,29 +102,19 @@ class _SeaweedGuideScreenState
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(
-          AppRadius.large,
-        ),
-        border: Border.all(
-          color: AppColors.borderPrimary,
-          width: 1.5,
-        ),
+        borderRadius: BorderRadius.circular(AppRadius.large),
+        border: Border.all(color: AppColors.borderPrimary, width: 1.5),
       ),
       child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.menu_book_outlined,
-            color: AppColors.primary,
-            size: 32,
-          ),
+          Icon(Icons.menu_book_outlined, color: AppColors.primary, size: 32),
 
           SizedBox(width: 16),
 
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Seaweed Guide',
@@ -162,8 +151,7 @@ class _SeaweedGuideScreenState
   ) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isCompact =
-            constraints.maxWidth < 700;
+        final isCompact = constraints.maxWidth < 700;
 
         final search = TextField(
           controller: _searchController,
@@ -173,11 +161,8 @@ class _SeaweedGuideScreenState
             });
           },
           decoration: InputDecoration(
-            hintText:
-                'Search by scientific or local name...',
-            prefixIcon: const Icon(
-              Icons.search,
-            ),
+            hintText: 'Search by scientific or local name...',
+            prefixIcon: const Icon(Icons.search),
             suffixIcon: _searchQuery.isEmpty
                 ? null
                 : IconButton(
@@ -189,15 +174,12 @@ class _SeaweedGuideScreenState
                         _searchQuery = '';
                       });
                     },
-                    icon: const Icon(
-                      Icons.close,
-                    ),
+                    icon: const Icon(Icons.close),
                   ),
           ),
         );
 
-        final languageSelector =
-            _LanguageSelector(
+        final languageSelector = _LanguageSelector(
           selectedLanguage: selectedLanguage,
         );
 
@@ -208,19 +190,14 @@ class _SeaweedGuideScreenState
 
               const SizedBox(height: 14),
 
-              Align(
-                alignment: Alignment.centerLeft,
-                child: languageSelector,
-              ),
+              Align(alignment: Alignment.centerLeft, child: languageSelector),
             ],
           );
         }
 
         return Row(
           children: [
-            Expanded(
-              child: search,
-            ),
+            Expanded(child: search),
 
             const SizedBox(width: 18),
 
@@ -231,9 +208,7 @@ class _SeaweedGuideScreenState
     );
   }
 
-  Widget _buildGrid(
-    List<SeaweedInfo> seaweeds,
-  ) {
+  Widget _buildGrid(List<SeaweedInfo> seaweeds) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
@@ -248,33 +223,34 @@ class _SeaweedGuideScreenState
           columnCount = 1;
         }
 
+        const crossAxisSpacing = 18.0;
+
+        final totalSpacing = crossAxisSpacing * (columnCount - 1);
+
+        final cardWidth = (width - totalSpacing) / columnCount;
+
+        final imageHeight = cardWidth * 9 / 16;
+
+        final cardHeight = imageHeight + 205;
+
         return GridView.builder(
           shrinkWrap: true,
-          physics:
-              const NeverScrollableScrollPhysics(),
+          physics: const NeverScrollableScrollPhysics(),
           itemCount: seaweeds.length,
-          gridDelegate:
-              SliverGridDelegateWithFixedCrossAxisCount(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: columnCount,
-            crossAxisSpacing: 18,
+            crossAxisSpacing: crossAxisSpacing,
             mainAxisSpacing: 18,
-            mainAxisExtent:
-                columnCount == 1
-                    ? 430
-                    : columnCount == 2
-                        ? 420
-                        : 410,
+            mainAxisExtent: cardHeight,
           ),
+
           itemBuilder: (context, index) {
             final seaweed = seaweeds[index];
 
             return SeaweedCard(
               seaweed: seaweed,
               onTap: () {
-                _openSeaweedDetails(
-                  context,
-                  seaweed,
-                );
+                _openSeaweedDetails(context, seaweed);
               },
             );
           },
@@ -284,66 +260,26 @@ class _SeaweedGuideScreenState
   }
 
   Widget _buildEmptySearch() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 24,
-        vertical: 60,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(
-          AppRadius.large,
-        ),
-        border: Border.all(
-          color: AppColors.disabled,
-        ),
-      ),
-      child: const Column(
-        children: [
-          Icon(
-            Icons.search_off,
-            size: 54,
-            color: AppColors.textMuted,
-          ),
+    return EmptyState(
+      icon: Icons.search_off_rounded,
+      title: 'No Seaweed Found',
+      message:
+          'Try searching using another scientific, common, '
+          'Filipino, or Bisaya name.',
+      actionLabel: 'Clear Search',
+      onAction: () {
+        _searchController.clear();
 
-          SizedBox(height: 16),
-
-          Text(
-            'No Seaweed Found',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-
-          SizedBox(height: 8),
-
-          Text(
-            'Try searching using another scientific '
-            'name or local name.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 14,
-            ),
-          ),
-        ],
-      ),
+        setState(() {
+          _searchQuery = '';
+        });
+      },
     );
   }
 
-  void _openSeaweedDetails(
-    BuildContext context,
-    SeaweedInfo seaweed,
-  ) {
+  void _openSeaweedDetails(BuildContext context, SeaweedInfo seaweed) {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => SeaweedDetailScreen(
-          seaweed: seaweed,
-        ),
-      ),
+      MaterialPageRoute(builder: (_) => SeaweedDetailScreen(seaweed: seaweed)),
     );
   }
 }
@@ -351,72 +287,43 @@ class _SeaweedGuideScreenState
 class _LanguageSelector extends StatelessWidget {
   final SeaweedLanguage selectedLanguage;
 
-  const _LanguageSelector({
-    required this.selectedLanguage,
-  });
+  const _LanguageSelector({required this.selectedLanguage});
 
   @override
   Widget build(BuildContext context) {
     return SegmentedButton<SeaweedLanguage>(
-      segments: SeaweedLanguage.values.map(
-        (language) {
-          return ButtonSegment<SeaweedLanguage>(
-            value: language,
-            label: Text(
-              language.label,
-            ),
-          );
-        },
-      ).toList(),
-      selected: {
-        selectedLanguage,
-      },
+      segments: SeaweedLanguage.values.map((language) {
+        return ButtonSegment<SeaweedLanguage>(
+          value: language,
+          label: Text(language.label),
+        );
+      }).toList(),
+      selected: {selectedLanguage},
       showSelectedIcon: false,
       onSelectionChanged: (selection) {
         if (selection.isEmpty) {
           return;
         }
 
-        context
-            .read<SeaweedLanguageProvider>()
-            .setLanguage(
-              selection.first,
-            );
+        context.read<SeaweedLanguageProvider>().setLanguage(selection.first);
       },
       style: ButtonStyle(
-        backgroundColor:
-            WidgetStateProperty.resolveWith(
-          (states) {
-            if (
-                states.contains(
-                  WidgetState.selected,
-                )
-            ) {
-              return AppColors.primaryDark;
-            }
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return AppColors.primaryDark;
+          }
 
-            return AppColors.surface;
-          },
-        ),
-        foregroundColor:
-            WidgetStateProperty.resolveWith(
-          (states) {
-            if (
-                states.contains(
-                  WidgetState.selected,
-                )
-            ) {
-              return AppColors.primary;
-            }
+          return AppColors.surface;
+        }),
+        foregroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return AppColors.primary;
+          }
 
-            return AppColors.textSecondary;
-          },
-        ),
-        side:
-            WidgetStateProperty.all(
-          const BorderSide(
-            color: AppColors.disabled,
-          ),
+          return AppColors.textSecondary;
+        }),
+        side: WidgetStateProperty.all(
+          const BorderSide(color: AppColors.disabled),
         ),
       ),
     );

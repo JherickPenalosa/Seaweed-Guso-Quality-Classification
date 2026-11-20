@@ -1,126 +1,67 @@
-import os
-from pathlib import Path
-from dotenv import load_dotenv
+"""Account registration and login for gUSo.
 
-load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+A user may activate their account by verifying either the registered email
+address or the registered mobile number. Verification of one method never
+implies verification of the other.
 
-
+OTP sending and verification remain in the separate OTP service and API.
+"""
 
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from app.core.security import (
+    create_access_token,
     hash_password,
     verify_password,
-    create_access_token,
 )
-
 from app.database.repository import (
-    get_user_by_email,
-    get_user_by_contact_num,
     create_user,
+    get_user_by_contact_num,
+    get_user_by_email,
 )
-
-from app.schemas.auth import (
-    RegisterRequest,
-    LoginRequest
-)
+from app.schemas.auth import LoginRequest, RegisterRequest
 
 
-# =====================================================
-# REGISTER USER
-# =====================================================
-
-def register_user(
-    db: Session,
-    data: RegisterRequest
-):
-    
-
-    # ---------------------------------------------
-    # CLEAN INPUT
-    # ---------------------------------------------
-
+def register_user(db: Session, data: RegisterRequest) -> dict:
+    """Register an account without granting access before OTP verification."""
     first_name = data.first_name.strip()
     last_name = data.last_name.strip()
-
     full_name = f"{first_name} {last_name}"
 
-    # Email is OPTIONAL.
-    email = (
-        str(data.email).strip().lower()
-        if data.email
-        else None
-    )
-
-    # Normalize contact number before checking or saving it.
+    # Email remains optional. Preserve the existing registration contract.
+    email = str(data.email).strip().lower() if data.email else None
     contact_num = data.contact_num.strip()
 
-    # Check for duplicates ONLY when email is provided.
-    if email is not None:
-        existing_email = get_user_by_email(db, email)
-
-        if existing_email is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Email is already registered."
-            )
-
-
-    # ---------------------------------------------
-    # CHECK DUPLICATE CONTACT NUMBER
-    # ---------------------------------------------
-
-    existing_contact = get_user_by_contact_num(
-        db,
-        contact_num
-    )
-
-    if existing_contact:
-
+    if email is not None and get_user_by_email(db, email) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Contact number is already registered."
+            detail="Email is already registered.",
         )
 
+    if get_user_by_contact_num(db, contact_num) is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Contact number is already registered.",
+        )
 
-    # ---------------------------------------------
-    # HASH PASSWORD
-    # ---------------------------------------------
-
-    password_hash = hash_password(
-        data.password
-    )
-
-
-    # ---------------------------------------------
-    # CREATE USER
-    # ---------------------------------------------
+    password_hash = hash_password(data.password)
 
     try:
-
         user = create_user(
             db=db,
             full_name=full_name,
             email=email,
             contact_num=contact_num,
-            password_hash=password_hash
+            password_hash=password_hash,
         )
-
-    except IntegrityError:
-
+    except IntegrityError as exc:
         db.rollback()
-
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="A user with the provided information already exists."
-        )
-
-
-    # ---------------------------------------------
-    # RESPONSE
-    # ---------------------------------------------
+            detail="A user with the provided information already exists.",
+        ) from exc
 
     return {
         "message": "Registration successful.",
@@ -129,153 +70,41 @@ def register_user(
             "full_name": user.full_name,
             "email": user.email,
             "contact_num": user.contact_num,
-            "is_verified": user.is_verified
-        }
+            "is_verified": user.is_verified,
+        },
     }
 
-# =====================================================
-# LOGIN USER
-# =====================================================
 
-# def login_user(
-#     db: Session,
-#     data: LoginRequest
-# ):
-
-#     identifier = data.identifier.strip()
-
-#     password = data.password
-
-
-#     # ---------------------------------------------
-#     # FIND USER
-#     # ---------------------------------------------
-
-#     user = None
-
-
-#     if "@" in identifier:
-
-#         user = get_user_by_email(
-#             db,
-#             identifier.lower()
-#         )
-
-#     else:
-
-#         user = get_user_by_contact_num(
-#             db,
-#             identifier
-#         )
-
-
-#     # ---------------------------------------------
-#     # USER NOT FOUND
-#     # ---------------------------------------------
-
-#     if user is None:
-
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="Invalid email/contact number or password."
-#         )
-
-
-#     # ---------------------------------------------
-#     # VERIFY PASSWORD
-#     # ---------------------------------------------
-
-#     password_valid = verify_password(
-#         password,
-#         user.password_hash
-#     )
-
-
-#     if not password_valid:
-
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="Invalid email/contact number or password."
-#         )
-
-
-#     # ---------------------------------------------
-#     # SUCCESS RESPONSE
-#     # ---------------------------------------------
-
-#     return {
-#         "message": "Login successful.",
-#         "user": {
-#             "user_id": user.user_id,
-#             "full_name": user.full_name,
-#             "email": user.email,
-#             "contact_num": user.contact_num,
-#             "is_verified": user.is_verified
-#         }
-#     }
-
-
-
-
-
-# =====================================================
-# LOGIN USER — MOBILE VERIFICATION REQUIRED
-# =====================================================
-
-def login_user(db: Session, data: LoginRequest):
-
+def login_user(db: Session, data: LoginRequest) -> dict:
+    """Log in only after a real email or phone OTP has been verified."""
     identifier = data.identifier.strip()
 
-    # Find the account using email or contact number.
     if "@" in identifier:
-        user = get_user_by_email(
-            db,
-            identifier.lower()
-        )
+        user = get_user_by_email(db, identifier.lower())
     else:
-        user = get_user_by_contact_num(
-            db,
-            identifier
-        )
+        user = get_user_by_contact_num(db, identifier)
 
-    # Check if the account exists.
-    if user is None:
+    # Verify credentials before disclosing account verification status.
+    if user is None or not verify_password(data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email/contact number or password."
+            detail="Invalid email/contact number or password.",
         )
 
-    # Verify password before revealing verification status.
-    if not verify_password(
-        data.password,
-        user.password_hash
-    ):
+    verified_mobile = bool(user.contact_num and user.contact_verified)
+    verified_email = bool(user.email and user.email_verified)
+
+    # Require both an activated account and a genuinely verified contact
+    # method. Do not use development/demo mode to bypass this check.
+    if not user.is_verified or not (verified_mobile or verified_email):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email/contact number or password."
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Your account is not verified. Please verify your registered "
+                "email address or mobile number before logging in."
+            ),
         )
 
-    # Require successful SMS verification.
-    # 
-    
-    # Presentation mode — temporarily skip SMS verification.
-# Default is False so verification stays required normally.
-    demo_mode = (
-        os.getenv("GUSO_DEMO_MODE", "false").lower()
-        == "true"
-    )
-
-    if not demo_mode:
-        if not user.contact_verified or not user.is_verified:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=(
-                    "Your mobile number is not verified. "
-                    "Please complete SMS verification before logging in."
-                )
-            )
-
-    # Email is optional and does not require verification.
     access_token = create_access_token(
         user_id=user.user_id,
         token_version=user.auth_token_version,
@@ -290,6 +119,6 @@ def login_user(db: Session, data: LoginRequest):
             "full_name": user.full_name,
             "email": user.email,
             "contact_num": user.contact_num,
-            "is_verified": user.is_verified
-        }
+            "is_verified": user.is_verified,
+        },
     }

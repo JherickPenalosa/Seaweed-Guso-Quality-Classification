@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'theme.dart';
+
 import '../providers/classification_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/seaweed_language_provider.dart';
+import '../providers/connectivity_provider.dart';
+
 import '../screens/home/home_screen.dart';
+
 import '../screens/landing/landing_screen.dart';
 import '../services/auth_service.dart';
-import 'theme.dart';
 
 class GusoApp extends StatelessWidget {
   const GusoApp({super.key});
@@ -17,61 +21,45 @@ class GusoApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ClassificationProvider()),
+
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
+
         ChangeNotifierProvider(create: (_) => SeaweedLanguageProvider()),
+
+        ChangeNotifierProvider(create: (_) => ConnectivityProvider()),
       ],
       child: MaterialApp(
-        title: 'GUSO',
+        title: 'gUSo',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.darkTheme,
-        home: const _SessionStartupGate(),
+        home: const _SessionGate(),
       ),
     );
   }
 }
 
-class _SessionStartupGate extends StatefulWidget {
-  const _SessionStartupGate();
+
+/// Direct users to the landing page unless a restored JWT is accepted by
+/// FastAPI. The token's presence alone is never sufficient.
+class _SessionGate extends StatefulWidget {
+  const _SessionGate();
 
   @override
-  State<_SessionStartupGate> createState() => _SessionStartupGateState();
+  State<_SessionGate> createState() => _SessionGateState();
 }
 
-class _SessionStartupGateState extends State<_SessionStartupGate> {
-  late final Future<bool> _sessionIsValid = _checkExistingSession();
+class _SessionGateState extends State<_SessionGate> {
+  late final Future<bool> _sessionCheck = _restoreAndValidate();
 
-  Future<bool> _checkExistingSession() async {
+  Future<bool> _restoreAndValidate() async {
     try {
-      // Chrome refresh clears in-memory state: restore the stored JWT first.
-      final restored = await AuthService.restoreSession();
-      debugPrint('gUSo startup: session restored = $restored');
-      if (!restored) return false;
-
-      final isValid = await const AuthService().validateSession();
-      debugPrint('gUSo startup: session valid = $isValid');
-      if (!isValid || !mounted) return false;
-
-      // Load PostgreSQL history while the authenticated session is active.
-      final provider = context.read<ClassificationProvider>();
-      await provider.loadSavedHistory();
-      if (!mounted) return false;
-
-      debugPrint(
-        'gUSo startup: saved summaries = '
-        '${provider.savedSummaries.length}; '
-        'full session records = ${provider.records.length}',
-      );
-      if (provider.historyError != null) {
-        debugPrint(
-          'gUSo startup: history load error = ${provider.historyError}',
-        );
-      }
-
-      // The session is still valid even if History could not load.
-      // The History UI will show its error and allow a retry.
-      return true;
+      final hasStoredSession = await AuthService.restoreSession();
+      if (!hasStoredSession) return false;
+      return await const AuthService().validateSession();
     } catch (error) {
-      debugPrint('gUSo startup: session check failed = $error');
+      // Fail closed when the server is unavailable. AuthService keeps the
+      // token on transient errors, so it can be checked on a later refresh.
+      debugPrint('Unable to validate saved login session: $error');
       return false;
     }
   }
@@ -79,17 +67,17 @@ class _SessionStartupGateState extends State<_SessionStartupGate> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<bool>(
-      future: _sessionIsValid,
+      future: _sessionCheck,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         }
+
         return snapshot.data == true
             ? const HomeScreen()
             : const LandingScreen();
-        // return const LandingScreen();
       },
     );
   }

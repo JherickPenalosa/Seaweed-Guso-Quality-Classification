@@ -10,36 +10,9 @@ import '../../services/history_service.dart';
 import '../../widgets/classification/characteristics_panel.dart';
 import '../../widgets/classification/classification_summary.dart';
 
-// A merged item for the UI. Full records belong to the current Flutter
-// session; summaries are independently loaded from PostgreSQL.
-class _HistoryEntry {
-  final String id;
-  final ClassificationRecord? record;
-  final SavedClassificationSummary? summary;
-
-  _HistoryEntry.full(ClassificationRecord full)
-    : id = full.id,
-      record = full,
-      summary = null;
-
-  _HistoryEntry.saved(SavedClassificationSummary saved)
-    : id = saved.id.toString(),
-      record = null,
-      summary = saved;
-
-  String get grade => record?.result.qualityClass ?? summary!.qualityGrade;
-  String get date => record?.displayDate ?? summary!.displayDate;
-  String get subtitle => record?.fileName ?? 'Saved record #$id';
-
-  // Locally saved results have full in-memory details. Older PostgreSQL
-  // records may only have the original summary and photograph.
-  bool get hasDetailedReport => record != null || summary!.hasFullReport;
-  String get statusLabel => record != null
-      ? 'Current session'
-      : summary!.hasFullReport
-          ? 'Complete report'
-          : 'Summary only';
-}
+import '../../widgets/common/empty_state.dart';
+import '../../widgets/common/retry_state.dart';
+import '../../widgets/common/skeleton_box.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -50,13 +23,12 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   static const double _historyBreakpoint = 900;
-  String? _selectedId;
 
   @override
   void initState() {
     super.initState();
-    // The provider notifies listeners. Load after the first build, not
-    // synchronously while the widget tree is building.
+    // The in-memory provider is empty after a browser refresh.
+    // Reload persisted records from the authenticated FastAPI History API.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<ClassificationProvider>().loadSavedHistory();
@@ -64,262 +36,368 @@ class _HistoryScreenState extends State<HistoryScreen> {
     });
   }
 
-  void _select(_HistoryEntry entry) {
-    setState(() {
-      _selectedId = entry.id;
-    });
-    if (entry.record != null) {
-      context.read<ClassificationProvider>().selectRecord(entry.record!);
-    }
-  }
-
-  // Ask first: this operation deletes the PostgreSQL record and its image.
-  Future<void> _confirmDelete(_HistoryEntry entry) async {
-    final classificationId = int.tryParse(entry.id);
-    if (classificationId == null || classificationId <= 0) return;
-
-    final provider = context.read<ClassificationProvider>();
-    if (provider.isDeletingClassification(classificationId)) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.large),
-          side: const BorderSide(color: AppColors.disabled),
+  Widget _buildGradientBackground({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.fromARGB(255, 3, 78, 3),
+            Color(0xFF0B2D0D),
+            Color(0xFF001000),
+          ],
+          stops: [0.0, 0.48, 1.0],
         ),
-        title: const Text(
-          'Delete saved classification?',
-          style: TextStyle(color: AppColors.textPrimary),
-        ),
-        content: Text(
-          'Permanently delete record #$classificationId (${entry.grade})? '
-          'Its original image and stored AI analysis will also be removed. '
-          'This action cannot be undone.',
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            height: 1.5,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.error,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            icon: const Icon(Icons.delete_forever_outlined),
-            label: const Text('Delete permanently'),
-          ),
-        ],
       ),
+      child: child,
     );
-
-    if (!mounted || confirmed != true) return;
-
-    try {
-      // The provider only updates its lists after FastAPI returns success.
-      await context
-          .read<ClassificationProvider>()
-          .deleteSavedClassification(classificationId);
-      if (!mounted) return;
-
-      if (_selectedId == entry.id) {
-        setState(() => _selectedId = null);
-      }
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(content: Text('Classification #$classificationId deleted.')),
-        );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(
-              error.toString().replaceFirst('Exception: ', ''),
-            ),
-          ),
-        );
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ClassificationProvider>();
-    final localRecords = provider.records;
-    final idsWithFullData = localRecords.map((record) => record.id).toSet();
 
-    // Same server ID can exist in both lists. Favor the in-session entry
-    // because it has actual uploaded bytes and the complete AI result.
-    final entries = <_HistoryEntry>[
-      ...localRecords.map(_HistoryEntry.full),
-      ...provider.savedSummaries
-          .where((summary) => !idsWithFullData.contains(summary.id.toString()))
-          .map(_HistoryEntry.saved),
-    ];
+    final records = provider.records;
+    final savedSummaries = provider.savedSummaries;
 
-    final activeId = entries.any((entry) => entry.id == _selectedId)
-        ? _selectedId
-        : entries.any((entry) => entry.id == provider.selectedRecord?.id)
-        ? provider.selectedRecord?.id
-        : entries.isEmpty
-        ? null
-        : entries.first.id;
-    final selected = activeId == null
-        ? null
-        : entries.firstWhere((entry) => entry.id == activeId);
+    if (provider.isLoadingHistory &&
+        records.isEmpty &&
+        savedSummaries.isEmpty) {
+      return _buildGradientBackground(child: const _HistoryLoadingView());
+    }
 
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          color: AppColors.sidebar,
-          child: Row(
-            children: [
-              const Icon(Icons.history_rounded, color: AppColors.primary),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Text(
-                  'Classification History',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+    if (provider.historyError != null &&
+        records.isEmpty &&
+        savedSummaries.isEmpty) {
+      return _buildGradientBackground(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(28),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: RetryState(
+                title: 'Unable to Load History',
+                message:
+                    provider.historyError ??
+                    'Saved classification records could not be loaded.',
+                onRetry: () {
+                  context.read<ClassificationProvider>().retryHistory();
+                },
               ),
-              if (provider.isLoadingHistory)
-                const Padding(
-                  padding: EdgeInsets.only(right: 12),
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
-              IconButton(
-                tooltip: 'Refresh saved history',
-                onPressed: provider.isLoadingHistory
-                    ? null
-                    : () => context
-                          .read<ClassificationProvider>()
-                          .loadSavedHistory(),
-                icon: const Icon(Icons.refresh_rounded),
-                color: AppColors.primary,
-              ),
-            ],
+            ),
           ),
         ),
-        if (provider.historyError != null)
+      );
+    }
+
+    if (savedSummaries.isNotEmpty) {
+      // Server-confirmed, saved classifications, including after refresh.
+      // Their images are downloaded through authenticated /history/{id}/image.
+      return _buildGradientBackground(
+        child: _SavedRecordsBrowser(summaries: savedSummaries),
+      );
+    }
+
+    if (records.isEmpty) {
+      return _buildGradientBackground(child: const _EmptyHistoryView());
+    }
+
+    final selectedRecord = provider.selectedRecord ?? records.first;
+
+    return _buildGradientBackground(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth >= _historyBreakpoint;
+
+          if (isWide) {
+            return _buildWideLayout(records, selectedRecord);
+          }
+          return _buildCompactLayout(records, selectedRecord);
+        },
+      ),
+    );
+  }
+
+  Widget _buildWideLayout(
+    List<ClassificationRecord> records,
+    ClassificationRecord selectedRecord,
+  ) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 280,
+          child: _HistoryList(
+            records: records,
+            selectedRecord: selectedRecord,
+            compact: false,
+          ),
+        ),
+
+        Container(width: 1, color: AppColors.disabled),
+
+        Expanded(child: _HistoryDetails(record: selectedRecord)),
+      ],
+    );
+  }
+
+  Widget _buildCompactLayout(
+    List<ClassificationRecord> records,
+    ClassificationRecord selectedRecord,
+  ) {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          _HistoryList(
+            records: records,
+            selectedRecord: selectedRecord,
+            compact: true,
+          ),
+
+          Container(height: 1, color: AppColors.disabled),
+
+          _HistoryDetails(record: selectedRecord, useInternalScroll: false),
+        ],
+      ),
+    );
+  }
+}
+
+class _HistoryLoadingView extends StatelessWidget {
+  const _HistoryLoadingView();
+
+  static const double _breakpoint = 900;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= _breakpoint;
+
+        if (isWide) {
+          return const Row(
+            children: [
+              SizedBox(width: 280, child: _HistoryListSkeleton()),
+
+              VerticalDivider(
+                width: 1,
+                thickness: 1,
+                color: AppColors.disabled,
+              ),
+
+              Expanded(
+                child: SingleChildScrollView(child: _HistoryDetailsSkeleton()),
+              ),
+            ],
+          );
+        }
+
+        return const SingleChildScrollView(
+          child: Column(
+            children: [
+              _HistoryCompactSkeleton(),
+
+              Divider(height: 1, thickness: 1, color: AppColors.disabled),
+
+              _HistoryDetailsSkeleton(),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _HistoryCompactSkeleton extends StatelessWidget {
+  const _HistoryCompactSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: AppColors.sidebar,
+      padding: const EdgeInsets.all(20),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SkeletonBox(width: 140, height: 20),
+
+          SizedBox(height: 10),
+
+          SkeletonBox(width: 110, height: 12),
+
+          SizedBox(height: 20),
+
+          Row(
+            children: [
+              Expanded(child: _HistoryRecordSkeleton()),
+
+              SizedBox(width: 10),
+
+              Expanded(child: _HistoryRecordSkeleton()),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HistoryListSkeleton extends StatelessWidget {
+  const _HistoryListSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: AppColors.sidebar,
+      padding: const EdgeInsets.all(20),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SkeletonBox(width: 140, height: 20),
+
+          SizedBox(height: 10),
+
+          SkeletonBox(width: 110, height: 12),
+
+          SizedBox(height: 24),
+
+          _HistoryRecordSkeleton(),
+
+          SizedBox(height: 10),
+
+          _HistoryRecordSkeleton(),
+
+          SizedBox(height: 10),
+
+          _HistoryRecordSkeleton(),
+        ],
+      ),
+    );
+  }
+}
+
+class _HistoryRecordSkeleton extends StatelessWidget {
+  const _HistoryRecordSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceDark,
+        borderRadius: BorderRadius.circular(AppRadius.medium),
+      ),
+      child: const Row(
+        children: [
+          SkeletonBox(width: 52, height: 52, borderRadius: 8),
+
+          SizedBox(width: 12),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SkeletonBox(width: 100, height: 14),
+
+                SizedBox(height: 8),
+
+                SkeletonBox(width: 75, height: 10),
+
+                SizedBox(height: 6),
+
+                SkeletonBox(width: 120, height: 10),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HistoryDetailsSkeleton extends StatelessWidget {
+  const _HistoryDetailsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            color: AppColors.surfaceDark,
-            child: Row(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(AppRadius.large),
+              border: Border.all(color: AppColors.borderPrimary, width: 1.5),
+            ),
+            child: const Row(
               children: [
-                const Icon(Icons.error_outline, color: AppColors.error),
-                const SizedBox(width: 10),
+                SkeletonBox(width: 48, height: 48, borderRadius: 12),
+
+                SizedBox(width: 16),
+
                 Expanded(
-                  child: Text(
-                    provider.historyError!,
-                    style: const TextStyle(color: AppColors.textPrimary),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SkeletonBox(width: 220, height: 20),
+
+                      SizedBox(height: 10),
+
+                      SkeletonBox(width: 170, height: 12),
+
+                      SizedBox(height: 7),
+
+                      SkeletonBox(width: 130, height: 11),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-        Expanded(
-          child: entries.isEmpty && provider.isLoadingHistory
-              ? const Center(child: CircularProgressIndicator())
-              : entries.isEmpty
-              ? const _EmptyHistoryView()
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    // Non-empty entry list guarantees a selected record.
-                    final chosen = selected!;
-                    final isWide = constraints.maxWidth >= _historyBreakpoint;
-                    final classificationId = int.tryParse(chosen.id);
-                    final isDeleting = classificationId != null &&
-                        provider.isDeletingClassification(classificationId);
-                    final VoidCallback? onDelete = classificationId != null &&
-                            classificationId > 0 &&
-                            !isDeleting
-                        ? () => _confirmDelete(chosen)
-                        : null;
-                    final list = _HistoryList(
-                      entries: entries,
-                      selectedId: chosen.id,
-                      onSelect: _select,
-                      compact: !isWide,
-                    );
-                    final details = chosen.record != null
-                        ? _HistoryDetails(
-                            record: chosen.record!,
-                            useInternalScroll: isWide,
-                            onDelete: onDelete,
-                            isDeleting: isDeleting,
-                          )
-                        : _SavedSummaryDetails(
-                            summary: chosen.summary!,
-                            useInternalScroll: isWide,
-                            onDelete: onDelete,
-                            isDeleting: isDeleting,
-                          );
 
-                    if (isWide) {
-                      return Row(
-                        children: [
-                          SizedBox(width: 280, child: list),
-                          Container(width: 1, color: AppColors.disabled),
-                          Expanded(child: details),
-                        ],
-                      );
-                    }
+          const SizedBox(height: 24),
 
-                    return SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          list,
-                          Container(height: 1, color: AppColors.disabled),
-                          details,
-                        ],
-                      ),
-                    );
-                  },
-                ),
-        ),
-      ],
+          const SkeletonBox(
+            width: double.infinity,
+            height: 320,
+            borderRadius: 18,
+          ),
+
+          const SizedBox(height: 24),
+
+          const SkeletonBox(
+            width: double.infinity,
+            height: 180,
+            borderRadius: 18,
+          ),
+        ],
+      ),
     );
   }
 }
 
 class _HistoryList extends StatelessWidget {
-  final List<_HistoryEntry> entries;
-  final String selectedId;
-  final ValueChanged<_HistoryEntry> onSelect;
+  final List<ClassificationRecord> records;
+  final ClassificationRecord selectedRecord;
   final bool compact;
 
   const _HistoryList({
-    required this.entries,
-    required this.selectedId,
-    required this.onSelect,
+    required this.records,
+    required this.selectedRecord,
     required this.compact,
   });
 
   @override
   Widget build(BuildContext context) {
-    final detailedCount = entries.where((entry) => entry.hasDetailedReport).length;
-    final summaryOnlyCount = entries.length - detailedCount;
-
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -334,37 +412,41 @@ class _HistoryList extends StatelessWidget {
             ),
           ),
         ),
+
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Text(
-            '${entries.length} saved classification${entries.length == 1 ? '' : 's'}',
+            '${records.length} saved classification'
+            '${records.length == 1 ? '' : 's'}',
             style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 5, 20, 0),
-          child: Text(
-            '$detailedCount with detailed results · $summaryOnlyCount summary only',
-            style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
-          ),
-        ),
+
         const SizedBox(height: 16),
+
         if (compact)
           SizedBox(
             height: 130,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              itemCount: entries.length,
+              itemCount: records.length,
               separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
-                final entry = entries[index];
+                final record = records[index];
+
+                final isSelected = record.id == selectedRecord.id;
+
                 return SizedBox(
                   width: 220,
                   child: _HistoryListItem(
-                    entry: entry,
-                    isSelected: entry.id == selectedId,
-                    onTap: () => onSelect(entry),
+                    record: record,
+                    isSelected: isSelected,
+                    onTap: () {
+                      context.read<ClassificationProvider>().selectRecord(
+                        record,
+                      );
+                    },
                   ),
                 );
               },
@@ -374,14 +456,19 @@ class _HistoryList extends StatelessWidget {
           Expanded(
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              itemCount: entries.length,
+              itemCount: records.length,
               separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
-                final entry = entries[index];
+                final record = records[index];
+
+                final isSelected = record.id == selectedRecord.id;
+
                 return _HistoryListItem(
-                  entry: entry,
-                  isSelected: entry.id == selectedId,
-                  onTap: () => onSelect(entry),
+                  record: record,
+                  isSelected: isSelected,
+                  onTap: () {
+                    context.read<ClassificationProvider>().selectRecord(record);
+                  },
                 );
               },
             ),
@@ -400,12 +487,12 @@ class _HistoryList extends StatelessWidget {
 }
 
 class _HistoryListItem extends StatelessWidget {
-  final _HistoryEntry entry;
+  final ClassificationRecord record;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _HistoryListItem({
-    required this.entry,
+    required this.record,
     required this.isSelected,
     required this.onTap,
   });
@@ -427,29 +514,18 @@ class _HistoryListItem extends StatelessWidget {
                 child: SizedBox(
                   width: 52,
                   height: 52,
-                  child:
-                      entry.record != null &&
-                          entry.record!.imageBytes.isNotEmpty
-                      ? Image.memory(
-                          entry.record!.imageBytes,
-                          fit: BoxFit.cover,
-                        )
-                      : Container(
-                          color: AppColors.surface,
-                          child: const Icon(
-                            Icons.description_outlined,
-                            color: AppColors.primary,
-                          ),
-                        ),
+                  child: Image.memory(record.imageBytes, fit: BoxFit.cover),
                 ),
               ),
+
               const SizedBox(width: 12),
+
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      entry.grade,
+                      record.result.qualityClass,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -460,9 +536,11 @@ class _HistoryListItem extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+
                     const SizedBox(height: 3),
+
                     Text(
-                      entry.date,
+                      record.displayDate,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -470,9 +548,11 @@ class _HistoryListItem extends StatelessWidget {
                         fontSize: 11,
                       ),
                     ),
+
                     const SizedBox(height: 2),
+
                     Text(
-                      entry.subtitle,
+                      record.fileName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -480,989 +560,12 @@ class _HistoryListItem extends StatelessWidget {
                         fontSize: 11,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    _ReportStatusChip(
-                      label: entry.statusLabel,
-                      detailed: entry.hasDetailedReport,
-                    ),
                   ],
                 ),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-// Explicitly distinguish current-session, stored full reports, and legacy
-// summary-only records without pretending that missing values were measured.
-class _ReportStatusChip extends StatelessWidget {
-  final String label;
-  final bool detailed;
-
-  const _ReportStatusChip({required this.label, required this.detailed});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: detailed ? AppColors.primaryDark : AppColors.surfaceDark,
-        borderRadius: BorderRadius.circular(AppRadius.small),
-        border: Border.all(
-          color: detailed ? AppColors.primary : AppColors.disabled,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            detailed ? Icons.check_circle_outline : Icons.info_outline,
-            color: detailed ? AppColors.primary : AppColors.textSecondary,
-            size: 13,
-          ),
-          const SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: detailed ? AppColors.primary : AppColors.textSecondary,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// The same control is used for current-session and PostgreSQL records.
-class _DeleteClassificationButton extends StatelessWidget {
-  final VoidCallback? onPressed;
-  final bool isDeleting;
-
-  const _DeleteClassificationButton({
-    required this.onPressed,
-    required this.isDeleting,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: isDeleting ? 'Deleting classification...' : 'Delete classification',
-      onPressed: onPressed,
-      color: AppColors.error,
-      disabledColor: AppColors.textMuted,
-      icon: isDeleting
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : const Icon(Icons.delete_outline),
-    );
-  }
-}
-
-class _SavedSummaryDetails extends StatelessWidget {
-  final SavedClassificationSummary summary;
-  final bool useInternalScroll;
-  final VoidCallback? onDelete;
-  final bool isDeleting;
-
-  const _SavedSummaryDetails({
-    required this.summary,
-    this.useInternalScroll = true,
-    required this.onDelete,
-    required this.isDeleting,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final content = Padding(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(AppRadius.large),
-              border: Border.all(color: AppColors.borderPrimary, width: 1.5),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.cloud_done_outlined, color: AppColors.primary),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        'Saved Classification Record',
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    _DeleteClassificationButton(
-                      onPressed: onDelete,
-                      isDeleting: isDeleting,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Record #${summary.id} · ${summary.displayDate}',
-                  style: const TextStyle(color: AppColors.textSecondary),
-                ),
-                const SizedBox(height: 12),
-                _ReportStatusChip(
-                  label: summary.hasFullReport ? 'Complete report' : 'Summary only',
-                  detailed: summary.hasFullReport,
-                ),
-                const SizedBox(height: 24),
-                _SummaryField(
-                  label: 'Quality Grade',
-                  value: summary.reportedQualityGrade ?? summary.qualityGrade,
-                  icon: Icons.star_outline_rounded,
-                ),
-                _SummaryField(
-                  label: 'Species Confidence',
-                  value: '${summary.confidencePercentage.toStringAsFixed(2)}%',
-                  icon: Icons.analytics_outlined,
-                ),
-                _SummaryField(
-                  label: 'Species Model',
-                  value: summary.modelName,
-                  icon: Icons.memory_rounded,
-                ),
-                _SummaryField(
-                  label: 'Date',
-                  value: summary.displayDate,
-                  icon: Icons.calendar_today_outlined,
-                ),
-                if (summary.fileName != null && summary.fileName!.isNotEmpty)
-                  _SummaryField(
-                    label: 'Original File',
-                    value: summary.fileName!,
-                    icon: Icons.image_outlined,
-                  ),
-                const Divider(color: AppColors.disabled),
-                const SizedBox(height: 16),
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 18),
-                  child: Text(
-                    'Stored AI Analysis',
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                if (summary.hasFullReport) ...[
-                  if (summary.reportedSpecies != null)
-                    _SummaryField(
-                      label: 'Detected Species',
-                      value: summary.reportedSpecies!,
-                      icon: Icons.eco_outlined,
-                    ),
-                  if (summary.reportedQualityConfidencePercentage != null)
-                    _SummaryField(
-                      label: 'Quality Confidence',
-                      value: '${summary.reportedQualityConfidencePercentage!.toStringAsFixed(2)}%',
-                      icon: Icons.verified_outlined,
-                    ),
-                  if (summary.reportedColor != null)
-                    _SummaryField(
-                      label: 'Dominant Color',
-                      value: summary.reportedColor!,
-                      icon: Icons.palette_outlined,
-                    ),
-                  if (summary.reportedImageQuality != null)
-                    _SummaryField(
-                      label: 'Photographic Quality',
-                      value: summary.reportedImageQuality!,
-                      icon: Icons.photo_camera_outlined,
-                    ),
-                  if (summary.reportedVisualTexture != null)
-                    _SummaryField(
-                      label: 'Visual Texture',
-                      value: summary.reportedVisualTexture!,
-                      icon: Icons.grain_outlined,
-                    ),
-                  if (summary.analysisResult?['message'] is String)
-                    _SummaryField(
-                      label: 'Classification Message',
-                      value: summary.analysisResult!['message'] as String,
-                      icon: Icons.info_outline,
-                    ),
-                  if (summary.reportedImageFeatures != null) ...[
-                    const SizedBox(height: 10),
-                    _SavedMeasurementsPanel(
-                      features: summary.reportedImageFeatures!,
-                    ),
-                  ],
-                ] else
-                  const _SummaryOnlyReportNotice(),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          const _HistoryImageHeading(),
-          const SizedBox(height: 12),
-          if (summary.hasImage)
-            _SavedImagePreview(classificationId: summary.id)
-          else
-            const _ImageUnavailableNotice(),
-        ],
-      ),
-    );
-
-    return useInternalScroll ? SingleChildScrollView(child: content) : content;
-  }
-}
-
-// Keep the "Stored AI Analysis" section visible for older records too.
-// Explain the missing fields instead of fabricating confidence or features.
-class _SummaryOnlyReportNotice extends StatelessWidget {
-  const _SummaryOnlyReportNotice();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceDark,
-        borderRadius: BorderRadius.circular(AppRadius.medium),
-        border: Border.all(color: AppColors.disabled),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.info_outline, color: AppColors.textSecondary, size: 22),
-          SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Detailed analysis not stored',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                SizedBox(height: 7),
-                Text(
-                  'This classification predates full report storage. '
-                  'Its saved quality grade, species confidence, model, '
-                  'date, and original image remain available. To obtain '
-                  'a new detailed report, classify the photograph again.',
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HistoryImageHeading extends StatelessWidget {
-  const _HistoryImageHeading();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Row(
-      children: [
-        Icon(Icons.image_outlined, color: AppColors.primary, size: 22),
-        SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            'Original Image',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ImageUnavailableNotice extends StatelessWidget {
-  const _ImageUnavailableNotice();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceDark,
-        borderRadius: BorderRadius.circular(AppRadius.large),
-        border: Border.all(color: AppColors.disabled),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.image_not_supported_outlined, color: AppColors.textMuted),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'No original image is stored for this classification.',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Present actual stored image-feature measurements as readable UI instead
-// of showing the raw PostgreSQL JSONB map on the History screen.
-class _SavedMeasurementsPanel extends StatelessWidget {
-  final Map<String, dynamic> features;
-
-  const _SavedMeasurementsPanel({required this.features});
-
-  Map<String, dynamic>? _section(String key) {
-    final raw = features[key];
-    return raw is Map ? Map<String, dynamic>.from(raw) : null;
-  }
-
-  static String _number(num number) => number.toStringAsFixed(2);
-
-  @override
-  Widget build(BuildContext context) {
-    final color = _section('color');
-    final photo = _section('image_quality');
-    final texture = _section('texture');
-
-    final colorShares = <MapEntry<String, double>>[];
-    final analyzedPixels = color?['analyzed_pixel_percentage'];
-    final distribution = color?['color_distribution'];
-    if (distribution is Map) {
-      for (final entry in distribution.entries) {
-        if (entry.value is num) {
-          colorShares.add(
-            MapEntry(entry.key.toString(), (entry.value as num).toDouble()),
-          );
-        }
-      }
-      colorShares.sort((a, b) => b.value.compareTo(a.value));
-    }
-
-    final photoMetrics = <Widget>[];
-    final width = photo?['width'];
-    final height = photo?['height'];
-    if (width is num && height is num) {
-      photoMetrics.add(
-        _MeasurementMetric(
-          label: 'Resolution',
-          value: '$width × $height px',
-        ),
-      );
-    }
-    if (photo?['brightness'] is num) {
-      photoMetrics.add(
-        _MeasurementMetric(
-          label: 'Brightness (0–255)',
-          value: _number(photo!['brightness'] as num),
-        ),
-      );
-    }
-    if (photo?['contrast'] is num) {
-      photoMetrics.add(
-        _MeasurementMetric(
-          label: 'Contrast',
-          value: _number(photo!['contrast'] as num),
-        ),
-      );
-    }
-    if (photo?['sharpness_score'] is num) {
-      photoMetrics.add(
-        _MeasurementMetric(
-          label: 'Sharpness score',
-          value: _number(photo!['sharpness_score'] as num),
-        ),
-      );
-    }
-
-    final issues = <String>[];
-    final rawIssues = photo?['issues'];
-    if (rawIssues is List) {
-      for (final issue in rawIssues) {
-        if (issue is String && issue.trim().isNotEmpty) {
-          issues.add(issue);
-        }
-      }
-    }
-
-    final textureScope = texture?['analysis_scope'];
-    final edgePercentage = texture?['edge_density_percentage'];
-    final textureMetrics = <Widget>[];
-    if (texture?['texture_level'] is String) {
-      textureMetrics.add(
-        _MeasurementMetric(
-          label: 'Texture level',
-          value: texture!['texture_level'] as String,
-        ),
-      );
-    }
-    if (texture?['texture_variation'] is num) {
-      textureMetrics.add(
-        _MeasurementMetric(
-          label: 'Texture variation',
-          value: _number(texture!['texture_variation'] as num),
-        ),
-      );
-    }
-    if (edgePercentage is num) {
-      textureMetrics.add(
-        _MeasurementMetric(
-          label: 'Visible edge pixels',
-          value: '${_number(edgePercentage)}%',
-        ),
-      );
-    }
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceDark,
-        borderRadius: BorderRadius.circular(AppRadius.medium),
-        border: Border.all(color: AppColors.disabled),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.tune_outlined, color: AppColors.primary, size: 22),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Image Measurements',
-                  style: TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 17,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          if (color != null)
-            _MeasurementSection(
-              icon: Icons.palette_outlined,
-              title: 'Color Distribution',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (colorShares.isEmpty)
-                    const Text(
-                      'No color distribution was determined.',
-                      style: TextStyle(color: AppColors.textSecondary),
-                    )
-                  else ...[
-                    for (final share in colorShares) ...[
-                      _ColorShareBar(
-                        label: share.key,
-                        percentage: share.value,
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                  ],
-                  if (analyzedPixels is num) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      '${_number(analyzedPixels)}% '
-                      'of image pixels were included in color analysis.',
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Color shares are based on sufficiently colored pixels, '
-                    'not seaweed-only pixels.',
-                    style: TextStyle(
-                      color: AppColors.textMuted,
-                      fontSize: 12,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-          if (photo != null)
-            _MeasurementSection(
-              icon: Icons.photo_camera_outlined,
-              title: 'Photographic Quality',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (photoMetrics.isNotEmpty)
-                    Wrap(spacing: 10, runSpacing: 10, children: photoMetrics),
-                  if (issues.isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    const Text(
-                      'Photo checks to review',
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    for (final issue in issues)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Icon(
-                              Icons.info_outline,
-                              color: AppColors.primary,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                issue,
-                                style: const TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ] else if (photo['summary'] is String) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      photo['summary'] as String,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-
-          if (texture != null)
-            _MeasurementSection(
-              icon: Icons.grain_outlined,
-              title: 'Texture & Edge Detail',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (textureMetrics.isNotEmpty)
-                    Wrap(spacing: 10, runSpacing: 10, children: textureMetrics),
-                  if (textureScope is String) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      'Analysis scope: $textureScope',
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-
-          const Padding(
-            padding: EdgeInsets.only(top: 4),
-            child: Text(
-              'These image-wide measurements are affected by lighting and '
-              'background. They are not a biological freshness test; '
-              'the quality grade comes from the separate quality model.',
-              style: TextStyle(
-                color: AppColors.textMuted,
-                fontSize: 12,
-                height: 1.5,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MeasurementSection extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final Widget child;
-
-  const _MeasurementSection({
-    required this.icon,
-    required this.title,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: AppColors.primary, size: 18),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _ColorShareBar extends StatelessWidget {
-  final String label;
-  final double percentage;
-
-  const _ColorShareBar({
-    required this.label,
-    required this.percentage,
-  });
-
-  static Color _swatch(String colorName) {
-    switch (colorName.toLowerCase()) {
-      case 'blue':
-        return const Color(0xFF599BD5);
-      case 'green':
-        return const Color(0xFF69B85C);
-      case 'yellow':
-        return const Color(0xFFD6B84D);
-      case 'brown':
-        return const Color(0xFF987453);
-      case 'red':
-        return const Color(0xFFE76C66);
-      case 'orange':
-        return const Color(0xFFDD9748);
-      case 'purple':
-        return const Color(0xFFA68ADB);
-      case 'pink':
-        return const Color(0xFFE18FAE);
-      default:
-        return AppColors.primary;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final color = _swatch(label);
-    final progress = percentage.clamp(0.0, 100.0).toDouble() / 100.0;
-
-    return Row(
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(3),
-          ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 58,
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 12,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 9,
-              backgroundColor: AppColors.surface,
-              valueColor: AlwaysStoppedAnimation<Color>(color),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 55,
-          child: Text(
-            '${percentage.toStringAsFixed(2)}%',
-            textAlign: TextAlign.right,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _MeasurementMetric extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _MeasurementMetric({
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 154,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.small),
-        border: Border.all(color: AppColors.disabled),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 11,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w600,
-              fontSize: 15,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Fetch a saved record's original image from the authenticated API.
-// The list endpoint returns summary JSON, not image bytes.
-class _SavedImagePreview extends StatefulWidget {
-  final int classificationId;
-
-  const _SavedImagePreview({required this.classificationId});
-
-  @override
-  State<_SavedImagePreview> createState() => _SavedImagePreviewState();
-}
-
-class _SavedImagePreviewState extends State<_SavedImagePreview> {
-  final HistoryService _historyService = const HistoryService();
-  late Future<Uint8List> _imageRequest;
-
-  @override
-  void initState() {
-    super.initState();
-    _imageRequest = _historyService.fetchSavedImage(widget.classificationId);
-  }
-
-  @override
-  void didUpdateWidget(covariant _SavedImagePreview oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.classificationId != widget.classificationId) {
-      _imageRequest = _historyService.fetchSavedImage(widget.classificationId);
-    }
-  }
-
-  void _retry() {
-    setState(() {
-      _imageRequest = _historyService.fetchSavedImage(widget.classificationId);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final imageHeight = constraints.maxWidth < 600 ? 300.0 : 420.0;
-
-        return Container(
-          width: double.infinity,
-          height: imageHeight,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceDark,
-            borderRadius: BorderRadius.circular(AppRadius.large),
-            border: Border.all(color: AppColors.borderLight, width: 2),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(AppRadius.large - 2),
-            child: FutureBuilder<Uint8List>(
-              future: _imageRequest,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState != ConnectionState.done) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.broken_image_outlined,
-                            color: AppColors.textMuted,
-                            size: 38,
-                          ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Unable to load the saved image.',
-                            style: TextStyle(color: AppColors.textPrimary),
-                          ),
-                          const SizedBox(height: 12),
-                          TextButton.icon(
-                            onPressed: _retry,
-                            icon: const Icon(Icons.refresh_rounded),
-                            label: const Text('Retry'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-
-                final imageBytes = snapshot.data;
-                if (imageBytes == null || imageBytes.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'No image is available for this record.',
-                      style: TextStyle(color: AppColors.textSecondary),
-                    ),
-                  );
-                }
-
-                return Image.memory(
-                  imageBytes,
-                  fit: BoxFit.contain,
-                  filterQuality: FilterQuality.high,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const Center(
-                      child: Text(
-                        'Unable to display the saved image.',
-                        style: TextStyle(color: AppColors.textSecondary),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _SummaryField extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-
-  const _SummaryField({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: AppColors.primary, size: 21),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1471,15 +574,8 @@ class _SummaryField extends StatelessWidget {
 class _HistoryDetails extends StatelessWidget {
   final ClassificationRecord record;
   final bool useInternalScroll;
-  final VoidCallback? onDelete;
-  final bool isDeleting;
 
-  const _HistoryDetails({
-    required this.record,
-    this.useInternalScroll = true,
-    required this.onDelete,
-    required this.isDeleting,
-  });
+  const _HistoryDetails({required this.record, this.useInternalScroll = true});
 
   @override
   Widget build(BuildContext context) {
@@ -1488,16 +584,10 @@ class _HistoryDetails extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _RecordHeader(
-            record: record,
-            onDelete: onDelete,
-            isDeleting: isDeleting,
-          ),
+          _RecordHeader(record: record),
 
           const SizedBox(height: 24),
 
-          const _HistoryImageHeading(),
-          const SizedBox(height: 12),
           _ImagePreview(record: record),
 
           const SizedBox(height: 24),
@@ -1521,14 +611,8 @@ class _HistoryDetails extends StatelessWidget {
 
 class _RecordHeader extends StatelessWidget {
   final ClassificationRecord record;
-  final VoidCallback? onDelete;
-  final bool isDeleting;
 
-  const _RecordHeader({
-    required this.record,
-    required this.onDelete,
-    required this.isDeleting,
-  });
+  const _RecordHeader({required this.record});
 
   @override
   Widget build(BuildContext context) {
@@ -1556,7 +640,9 @@ class _RecordHeader extends StatelessWidget {
               size: 26,
             ),
           ),
+
           const SizedBox(width: 16),
+
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1569,31 +655,97 @@ class _RecordHeader extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+
                 const SizedBox(height: 8),
+
                 Text(
                   '${record.displayDate} · ${record.displayTitle}',
-                  style: const TextStyle(color: AppColors.textSecondary),
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                  ),
                 ),
+
                 const SizedBox(height: 4),
+
                 Text(
                   record.fileName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: AppColors.textMuted),
-                ),
-                const SizedBox(height: 12),
-                const _ReportStatusChip(
-                  label: 'Current session',
-                  detailed: true,
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 13,
+                  ),
                 ),
               ],
             ),
           ),
-          _DeleteClassificationButton(
-            onPressed: onDelete,
-            isDeleting: isDeleting,
+
+          const SizedBox(width: 16),
+
+          IconButton(
+            tooltip: 'Delete record',
+            onPressed: () {
+              _confirmDelete(context, record);
+            },
+            icon: const Icon(Icons.delete_outline, color: AppColors.error),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    ClassificationRecord record,
+  ) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: const Text(
+            'Delete Record',
+            style: TextStyle(color: AppColors.textPrimary),
+          ),
+          content: const Text(
+            'Are you sure you want to delete this saved '
+            'classification record?',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
+              child: const Text('CANCEL'),
+            ),
+
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('DELETE'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true || !context.mounted) {
+      return;
+    }
+
+    context.read<ClassificationProvider>().removeRecord(record.id);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Classification record deleted.'),
+        duration: Duration(seconds: 2),
       ),
     );
   }
@@ -1638,52 +790,779 @@ class _EmptyHistoryView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
-        child: Container(
+        child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
-          padding: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(AppRadius.large),
-            border: Border.all(color: AppColors.disabled),
-          ),
-          child: const Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.history_outlined,
-                size: 64,
-                color: AppColors.textMuted,
-              ),
-
-              SizedBox(height: 20),
-
-              Text(
-                'No Saved Records',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-
-              SizedBox(height: 10),
-
-              Text(
+          child: const EmptyState(
+            icon: Icons.history_outlined,
+            title: 'No Saved Records',
+            message:
                 'Saved classification results will appear here. '
                 'Classify a Guso image and press Save to create a record.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 14,
-                  height: 1.5,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// PostgreSQL-backed records. This supplements the partner's existing
+/// current-session History widgets without replacing their layout or styling.
+class _SavedRecordsBrowser extends StatefulWidget {
+  const _SavedRecordsBrowser({required this.summaries});
+
+  final List<SavedClassificationSummary> summaries;
+
+  @override
+  State<_SavedRecordsBrowser> createState() => _SavedRecordsBrowserState();
+}
+
+class _SavedRecordsBrowserState extends State<_SavedRecordsBrowser> {
+  int? _selectedId;
+
+  @override
+  Widget build(BuildContext context) {
+    final summaries = widget.summaries;
+    if (summaries.isEmpty) return const _EmptyHistoryView();
+
+    final selectedId = summaries.any((s) => s.id == _selectedId)
+        ? _selectedId!
+        : summaries.first.id;
+    final selected = summaries.firstWhere((s) => s.id == selectedId);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 900;
+        final list = _SavedRecordList(
+          records: summaries,
+          selectedId: selectedId,
+          compact: !wide,
+          onTap: (id) => setState(() => _selectedId = id),
+        );
+        final details = _SavedRecordDetails(
+          key: ValueKey(selectedId),
+          summary: selected,
+          internalScroll: wide,
+          onDelete: () => _deleteRecord(selected),
+        );
+        if (wide) {
+          return Row(
+            children: [
+              SizedBox(width: 280, child: list),
+              Container(width: 1, color: AppColors.disabled),
+              Expanded(child: details),
+            ],
+          );
+        }
+        return SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              list,
+              Container(height: 1, color: AppColors.disabled),
+              details,
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteRecord(SavedClassificationSummary summary) async {
+    final provider = context.read<ClassificationProvider>();
+    if (provider.isDeletingClassification(summary.id)) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Delete saved classification?'),
+        content: Text(
+          'Delete record #${summary.id} and its original image permanently? '
+          'This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('CANCEL'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('DELETE'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    try {
+      await provider.deleteSavedClassification(summary.id);
+      if (!mounted) return;
+      setState(() => _selectedId = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Saved classification deleted.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Delete failed: $error')));
+    }
+  }
+}
+
+class _SavedRecordList extends StatelessWidget {
+  const _SavedRecordList({
+    required this.records,
+    required this.selectedId,
+    required this.compact,
+    required this.onTap,
+  });
+
+  final List<SavedClassificationSummary> records;
+  final int selectedId;
+  final bool compact;
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tiles = ListView.separated(
+      scrollDirection: compact ? Axis.horizontal : Axis.vertical,
+      itemCount: records.length,
+      padding: const EdgeInsets.all(12),
+      separatorBuilder: (_, _) =>
+          SizedBox(width: compact ? 10 : 0, height: compact ? 0 : 10),
+      itemBuilder: (context, index) {
+        final record = records[index];
+        final selected = record.id == selectedId;
+        return SizedBox(
+          width: compact ? 235 : null,
+          child: Material(
+            color: selected ? AppColors.primaryDark : AppColors.surfaceDark,
+            borderRadius: BorderRadius.circular(AppRadius.medium),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppRadius.medium),
+              onTap: () => onTap(record.id),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.image_outlined, color: AppColors.primary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            record.qualityGrade,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            record.displayDate,
+                            style: const TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 11,
+                            ),
+                          ),
+                          Text(
+                            '#${record.id} · ${record.fileName ?? 'Image'}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    return Container(
+      color: AppColors.sidebar,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 22, 20, 5),
+            child: Text(
+              'Saved Records',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              '${records.length} saved classification${records.length == 1 ? '' : 's'}',
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+            ),
+          ),
+          if (compact)
+            SizedBox(height: 140, child: tiles)
+          else
+            Expanded(child: tiles),
+        ],
+      ),
+    );
+  }
+}
+
+class _SavedRecordDetails extends StatelessWidget {
+  const _SavedRecordDetails({
+    super.key,
+    required this.summary,
+    required this.internalScroll,
+    required this.onDelete,
+  });
+
+  final SavedClassificationSummary summary;
+  final bool internalScroll;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<ClassificationProvider>();
+    final deleting = provider.isDeletingClassification(summary.id);
+    final fields = <Widget>[
+      _SavedDetailField(label: 'Quality Grade', value: summary.qualityGrade),
+      _SavedDetailField(
+        label: 'Quality Confidence',
+        value: '${summary.confidencePercentage.toStringAsFixed(2)}%',
+      ),
+      _SavedDetailField(label: 'Model', value: summary.modelName),
+      _SavedDetailField(label: 'Classified', value: summary.displayDate),
+      if (summary.reportedColor != null)
+        _SavedDetailField(label: 'Image Color', value: summary.reportedColor!),
+      if (summary.reportedImageQuality != null)
+        _SavedDetailField(
+          label: 'Photographic Quality',
+          value: summary.reportedImageQuality!,
+        ),
+      if (summary.reportedVisualTexture != null)
+        _SavedDetailField(
+          label: 'Image Texture',
+          value: summary.reportedVisualTexture!,
+        ),
+      if (!summary.hasFullReport)
+        const Padding(
+          padding: EdgeInsets.only(top: 10),
+          child: Text(
+            'Detailed image measurements were not stored with this older record.',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+        ),
+    ];
+
+    final body = Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              border: Border.all(color: AppColors.borderPrimary),
+              borderRadius: BorderRadius.circular(AppRadius.large),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.history, color: AppColors.primary, size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Saved Classification #${summary.id}',
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 21,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Refresh saved history',
+                  onPressed: provider.isLoadingHistory
+                      ? null
+                      : () => context
+                            .read<ClassificationProvider>()
+                            .loadSavedHistory(),
+                  icon: const Icon(Icons.refresh),
+                  color: AppColors.primary,
+                ),
+                IconButton(
+                  tooltip: 'Delete saved classification',
+                  onPressed: deleting ? null : onDelete,
+                  icon: deleting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.delete_outline),
+                  color: AppColors.error,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          if (summary.hasImage)
+            _SavedOriginalImage(classificationId: summary.id)
+          else
+            const SizedBox(
+              height: 220,
+              child: Center(child: Text('No stored image is available.')),
+            ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              border: Border.all(color: AppColors.borderPrimary),
+              borderRadius: BorderRadius.circular(AppRadius.large),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Stored Classification Results',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 15),
+                ...fields,
+                // Recover the measurements saved with this classification.
+                // Older records without image_features remain readable.
+                if (summary.reportedImageFeatures != null) ...[
+                  const SizedBox(height: 14),
+                  _SavedImageMeasurements(
+                    features: summary.reportedImageFeatures!,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+    return internalScroll ? SingleChildScrollView(child: body) : body;
+  }
+}
+
+/// Display the *stored* image measurements from FastAPI/PostgreSQL.
+/// All percentages describe image pixels, including the background;
+/// they are not estimated seaweed freshness or biological quality.
+class _SavedImageMeasurements extends StatelessWidget {
+  const _SavedImageMeasurements({required this.features});
+
+  final Map<String, dynamic> features;
+
+  Map<String, dynamic>? _section(String name) {
+    final value = features[name];
+    return value is Map ? Map<String, dynamic>.from(value) : null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorInfo = _section('color');
+    final photoInfo = _section('image_quality');
+    final textureInfo = _section('texture');
+
+    final shares = <MapEntry<String, double>>[];
+    final distribution = colorInfo?['color_distribution'];
+    if (distribution is Map) {
+      for (final item in distribution.entries) {
+        final amount = item.value;
+        if (amount is num && amount.isFinite) {
+          shares.add(
+            MapEntry(
+              item.key.toString(),
+              amount.toDouble().clamp(0.0, 100.0).toDouble(),
+            ),
+          );
+        }
+      }
+      shares.sort((a, b) => b.value.compareTo(a.value));
+    }
+
+    final measurements = <Widget>[];
+    final width = photoInfo?['width'];
+    final height = photoInfo?['height'];
+    if (width is num && height is num) {
+      measurements.add(
+        _SavedMetric(
+          title: 'Image resolution',
+          value: '${width.toInt()} × ${height.toInt()} pixels',
+        ),
+      );
+    }
+    for (final entry in [
+      ('Brightness (0–255)', photoInfo?['brightness']),
+      ('Contrast', photoInfo?['contrast']),
+      ('Sharpness score', photoInfo?['sharpness_score']),
+      ('Texture variation', textureInfo?['texture_variation']),
+      ('Visible edge pixels', textureInfo?['edge_density_percentage']),
+    ]) {
+      final value = entry.$2;
+      if (value is num && value.isFinite) {
+        final suffix = entry.$1 == 'Visible edge pixels' ? '%' : '';
+        measurements.add(
+          _SavedMetric(
+            title: entry.$1,
+            value: '${value.toStringAsFixed(2)}$suffix',
+          ),
+        );
+      }
+    }
+
+    final analyzedPixelPercentage = colorInfo?['analyzed_pixel_percentage'];
+    final issues = photoInfo?['issues'];
+    final validIssues = issues is List
+        ? issues.whereType<String>().where((s) => s.trim().isNotEmpty).toList()
+        : <String>[];
+
+    if (shares.isEmpty && measurements.isEmpty && validIssues.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceDark,
+        borderRadius: BorderRadius.circular(AppRadius.medium),
+        border: Border.all(color: AppColors.disabled),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.bar_chart_rounded, color: AppColors.primary, size: 23),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Saved Image Measurements',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
           ),
-        ),
+          if (shares.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            const Text(
+              'Image Color Distribution',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 14),
+            for (final share in shares) ...[
+              _SavedColorShareBar(label: share.key, percentage: share.value),
+              const SizedBox(height: 12),
+            ],
+            if (analyzedPixelPercentage is num &&
+                analyzedPixelPercentage.isFinite) ...[
+              const SizedBox(height: 3),
+              Text(
+                '${analyzedPixelPercentage.toStringAsFixed(2)}% of photo pixels '
+                'were included in color analysis.',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+            const SizedBox(height: 8),
+            const Text(
+              'Bars show the share of detected colors among analyzed '
+              'colored pixels in the whole photo, including its background. '
+              'They do not measure seaweed health or freshness.',
+              style: TextStyle(
+                color: AppColors.textMuted,
+                fontSize: 12,
+                height: 1.45,
+              ),
+            ),
+          ],
+          if (measurements.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            const Divider(color: AppColors.disabled),
+            const SizedBox(height: 12),
+            const Text(
+              'Photo and Texture Statistics',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(spacing: 12, runSpacing: 12, children: measurements),
+          ],
+          if (validIssues.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            const Text(
+              'Photo-quality checks',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            for (final issue in validIssues)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  '• $issue',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+          ],
+        ],
       ),
+    );
+  }
+}
+
+class _SavedColorShareBar extends StatelessWidget {
+  const _SavedColorShareBar({required this.label, required this.percentage});
+
+  final String label;
+  final double percentage;
+
+  Color get _barColor {
+    switch (label.trim().toLowerCase()) {
+      case 'green':
+        return const Color(0xFF78D647);
+      case 'brown':
+        return const Color(0xFFA8774F);
+      case 'red':
+        return const Color(0xFFE56767);
+      case 'orange':
+        return const Color(0xFFF2A35A);
+      case 'yellow':
+        return const Color(0xFFE5CB56);
+      case 'blue':
+        return const Color(0xFF66A9E8);
+      case 'purple':
+        return const Color(0xFFAF8ADD);
+      case 'pink':
+        return const Color(0xFFE897B8);
+      default:
+        return AppColors.primary;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            Text(
+              '${percentage.toStringAsFixed(2)}%',
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(7),
+          child: LinearProgressIndicator(
+            value: percentage / 100,
+            minHeight: 13,
+            backgroundColor: AppColors.disabled,
+            color: _barColor,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SavedMetric extends StatelessWidget {
+  const _SavedMetric({required this.title, required this.value});
+
+  final String title;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 165),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.small),
+        border: Border.all(color: AppColors.disabled),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SavedDetailField extends StatelessWidget {
+  const _SavedDetailField({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Loading is tied to this widget's lifetime, avoiding re-downloading the
+// image every time Provider notifies listeners.
+class _SavedOriginalImage extends StatefulWidget {
+  const _SavedOriginalImage({required this.classificationId});
+  final int classificationId;
+
+  @override
+  State<_SavedOriginalImage> createState() => _SavedOriginalImageState();
+}
+
+class _SavedOriginalImageState extends State<_SavedOriginalImage> {
+  late Future<Uint8List> _imageFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _SavedOriginalImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.classificationId != widget.classificationId) _load();
+  }
+
+  void _load() {
+    _imageFuture = const HistoryService().fetchSavedImage(
+      widget.classificationId,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Uint8List>(
+      future: _imageFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const SizedBox(
+            height: 350,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.hasError || !snapshot.hasData) {
+          return SizedBox(
+            height: 220,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Unable to load the saved image.'),
+                  const SizedBox(height: 10),
+                  OutlinedButton(
+                    onPressed: () => setState(_load),
+                    child: const Text('Retry image'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        return Container(
+          width: double.infinity,
+          height: 370,
+          decoration: BoxDecoration(
+            color: AppColors.surfaceDark,
+            borderRadius: BorderRadius.circular(AppRadius.large),
+            border: Border.all(color: AppColors.borderLight),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.large),
+            child: Image.memory(snapshot.data!, fit: BoxFit.contain),
+          ),
+        );
+      },
     );
   }
 }
