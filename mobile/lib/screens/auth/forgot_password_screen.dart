@@ -1,110 +1,228 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
+import '../../services/mobile_auth_service.dart';
+
+enum ForgotPasswordReturnAction { login, register }
+
+enum _RecoveryStep { request, reset, success }
 
 class ForgotPasswordScreen extends StatefulWidget {
-  final VoidCallback onBackToLogin;
-
   const ForgotPasswordScreen({
     super.key,
-    required this.onBackToLogin,
+    this.onBackToLogin,
+    this.onRecoverySubmitted,
   });
 
+  // Retained for compatibility with the existing Landing page.
+  // The old simulated recovery callback is no longer invoked.
+  final VoidCallback? onBackToLogin;
+
+  final void Function(String identifier)? onRecoverySubmitted;
+
   @override
-  State<ForgotPasswordScreen> createState() =>
-      _ForgotPasswordScreenState();
+  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
-class _ForgotPasswordScreenState
-    extends State<ForgotPasswordScreen> {
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+  final MobileAuthService _authService = const MobileAuthService();
+
   final _formKey = GlobalKey<FormState>();
 
-  final TextEditingController _identifierController =
-      TextEditingController();
+  final _identifierController = TextEditingController();
+  final _codeController = TextEditingController();
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+
+  _RecoveryStep _step = _RecoveryStep.request;
 
   bool _isSubmitting = false;
+  bool _hideNewPassword = true;
+  bool _hideConfirmPassword = true;
+
+  String? _errorMessage;
+  String? _noticeMessage;
+
+  int _resendSeconds = 0;
+  Timer? _resendTimer;
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
     _identifierController.dispose();
+    _codeController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  Future<void> _sendRecoveryRequest() async {
+  void _startResendCooldown() {
+    _resendTimer?.cancel();
+
+    setState(() {
+      _resendSeconds = 60;
+    });
+
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      if (_resendSeconds <= 1) {
+        timer.cancel();
+        setState(() {
+          _resendSeconds = 0;
+        });
+      } else {
+        setState(() {
+          _resendSeconds--;
+        });
+      }
+    });
+  }
+
+  void _returnToLogin() {
+    if (_isSubmitting) return;
+
+    final callback = widget.onBackToLogin;
+
+    if (callback != null) {
+      callback();
+      return;
+    }
+
+    Navigator.of(context).pop(ForgotPasswordReturnAction.login);
+  }
+
+  void _returnToRegister() {
+    if (_isSubmitting) return;
+
+    Navigator.of(context).pop(ForgotPasswordReturnAction.register);
+  }
+
+  Future<void> _requestRecovery({bool resend = false}) async {
+    if (_isSubmitting) return;
+    if (resend && _resendSeconds > 0) return;
+
     FocusScope.of(context).unfocus();
 
-    if (!_formKey.currentState!.validate()) {
+    if (!resend && !(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+
+    final identifier = _identifierController.text.trim();
+
+    if (identifier.isEmpty) return;
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+      _noticeMessage = null;
+    });
+
+    try {
+      await _authService.requestPasswordReset(identifier: identifier);
+
+      if (!mounted) return;
+
+      setState(() {
+        _step = _RecoveryStep.reset;
+        _noticeMessage =
+            'If this account has a verified recovery method, '
+            'a code will be sent. Check your verified '
+            'email or phone.';
+      });
+
+      _startResendCooldown();
+    } on MobileAuthException catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = error.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage =
+            'Unable to request a recovery code. '
+            'Please try again.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _resetPassword() async {
+    if (_isSubmitting) return;
+
+    FocusScope.of(context).unfocus();
+
+    if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
 
     setState(() {
       _isSubmitting = true;
+      _errorMessage = null;
+      _noticeMessage = null;
     });
 
-    await Future.delayed(
-      const Duration(milliseconds: 700),
-    );
+    try {
+      await _authService.confirmPasswordReset(
+        identifier: _identifierController.text.trim(),
+        code: _codeController.text.trim(),
+        newPassword: _newPasswordController.text,
+        confirmPassword: _confirmPasswordController.text,
+      );
 
-    if (!mounted) {
-      return;
+      if (!mounted) return;
+
+      _codeController.clear();
+      _newPasswordController.clear();
+      _confirmPasswordController.clear();
+
+      _resendTimer?.cancel();
+
+      setState(() {
+        _step = _RecoveryStep.success;
+        _resendSeconds = 0;
+        _errorMessage = null;
+      });
+    } on MobileAuthException catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = error.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage =
+            'Unable to reset your password. '
+            'Please try again.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
     }
-
-    setState(() {
-      _isSubmitting = false;
-    });
-
-    await _showSuccessDialog();
-  }
-
-  Future<void> _showSuccessDialog() {
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: AppColors.surface,
-          icon: const Icon(
-            Icons.mark_email_read_outlined,
-            color: AppColors.success,
-            size: 46,
-          ),
-          title: const Text(
-            'Recovery Request Sent',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          content: const Text(
-            'A recovery code has been simulated for this prototype. '
-            'You may now return to Login.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              height: 1.5,
-            ),
-          ),
-          actionsAlignment: MainAxisAlignment.center,
-          actions: [
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                widget.onBackToLogin();
-              },
-              child: const Text(
-                'Back to Login',
-              ),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -117,48 +235,33 @@ class _ForgotPasswordScreenState
               Color(0xFF0B2D0D),
               Color(0xFF001000),
             ],
-            stops: [
-              0.0,
-              0.48,
-              1.0,
-            ],
+            stops: [0.0, 0.48, 1.0],
           ),
         ),
         child: SafeArea(
-          child: Column(
-            children: [
-              _buildTopBar(),
+          child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Column(
+                  children: [
+                    _buildTopBar(),
 
-              Expanded(
-                child: SingleChildScrollView(
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.lg,
-                    AppSpacing.lg,
-                    AppSpacing.lg,
-                    AppSpacing.xl,
-                  ),
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.stretch,
-                    children: [
-                      _buildBranding(context),
+                    const SizedBox(height: 16),
 
-                      const SizedBox(
-                        height: AppSpacing.xl,
-                      ),
+                    _buildBrand(),
 
-                      _buildRecoveryCard(context),
+                    const SizedBox(height: 28),
 
-                      const SizedBox(
-                        height: AppSpacing.lg,
-                      ),
-                    ],
-                  ),
+                    _buildRecoveryCard(),
+
+                    const SizedBox(height: 24),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -166,272 +269,514 @@ class _ForgotPasswordScreenState
   }
 
   Widget _buildTopBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.sm,
-        AppSpacing.sm,
-        AppSpacing.lg,
-        0,
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: IconButton(
+        tooltip: 'Back to Login',
+        onPressed: _isSubmitting ? null : _returnToLogin,
+        icon: const Icon(
+          Icons.arrow_back_ios_new,
+          color: AppColors.textPrimary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBrand() {
+    return Column(
+      children: [
+        RichText(
+          textAlign: TextAlign.center,
+          text: const TextSpan(
+            style: TextStyle(
+              fontSize: 43,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1,
+            ),
+            children: [
+              TextSpan(
+                text: 'g',
+                style: TextStyle(color: AppColors.textPrimary),
+              ),
+              TextSpan(
+                text: 'US',
+                style: TextStyle(color: AppColors.primary),
+              ),
+              TextSpan(
+                text: 'o',
+                style: TextStyle(color: AppColors.textPrimary),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        Text(
+          _step == _RecoveryStep.success
+              ? 'Password Updated'
+              : _step == _RecoveryStep.reset
+              ? 'Reset Your Password'
+              : 'Forgot Password?',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 27,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
+        Text(
+          _step == _RecoveryStep.success
+              ? 'Your password has been changed successfully.'
+              : _step == _RecoveryStep.reset
+              ? 'Enter your recovery code and create a new password.'
+              : 'Enter your email or contact number to recover your account.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 14,
+            height: 1.5,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecoveryCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.extraLarge),
+        border: Border.all(color: AppColors.borderPrimary, width: 1.5),
+      ),
+      child: _step == _RecoveryStep.success
+          ? _buildSuccessContent()
+          : Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildCardIcon(),
+
+                  const SizedBox(height: 20),
+
+                  Text(
+                    _step == _RecoveryStep.request
+                        ? 'Account Recovery'
+                        : 'Verify Recovery Code',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+
+                  const SizedBox(height: 22),
+
+                  if (_step == _RecoveryStep.request)
+                    _buildRequestFields()
+                  else
+                    _buildResetFields(),
+
+                  if (_noticeMessage != null) ...[
+                    const SizedBox(height: 16),
+                    _buildFeedback(_noticeMessage!, isError: false),
+                  ],
+
+                  if (_errorMessage != null) ...[
+                    const SizedBox(height: 16),
+                    _buildFeedback(_errorMessage!, isError: true),
+                  ],
+
+                  const SizedBox(height: 24),
+
+                  _buildPrimaryButton(),
+
+                  if (_step == _RecoveryStep.reset) _buildResendSection(),
+
+                  const SizedBox(height: 22),
+
+                  _buildFooterLinks(),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildCardIcon() {
+    return Center(
+      child: Container(
+        width: 58,
+        height: 58,
+        decoration: BoxDecoration(
+          color: AppColors.primaryDark,
+          borderRadius: BorderRadius.circular(AppRadius.large),
+        ),
+        child: Icon(
+          _step == _RecoveryStep.request
+              ? Icons.mark_email_unread_outlined
+              : Icons.lock_reset_rounded,
+          color: AppColors.primary,
+          size: 30,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRequestFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Email or Contact Number',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+
+        const SizedBox(height: 9),
+
+        TextFormField(
+          controller: _identifierController,
+          enabled: !_isSubmitting,
+          keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.done,
+          style: const TextStyle(color: AppColors.textPrimary),
+          decoration: const InputDecoration(
+            hintText: 'Enter email or contact number',
+            prefixIcon: Icon(Icons.person_search_outlined),
+          ),
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'Email or contact number is required.';
+            }
+            return null;
+          },
+          onFieldSubmitted: (_) {
+            _requestRecovery();
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResetFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Recovery code',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+
+        const SizedBox(height: 9),
+
+        TextFormField(
+          controller: _codeController,
+          enabled: !_isSubmitting,
+          keyboardType: TextInputType.number,
+          textInputAction: TextInputAction.next,
+          maxLength: 6,
+          autofillHints: const [AutofillHints.oneTimeCode],
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            letterSpacing: 5,
+            fontWeight: FontWeight.bold,
+          ),
+          decoration: const InputDecoration(
+            hintText: '000000',
+            prefixIcon: Icon(Icons.pin_outlined),
+            counterText: '',
+          ),
+          validator: (value) {
+            if (!RegExp(r'^\d{6}$').hasMatch(value?.trim() ?? '')) {
+              return 'Enter a valid six-digit code.';
+            }
+            return null;
+          },
+        ),
+
+        const SizedBox(height: 16),
+
+        const Text(
+          'New password',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+
+        const SizedBox(height: 9),
+
+        TextFormField(
+          controller: _newPasswordController,
+          enabled: !_isSubmitting,
+          obscureText: _hideNewPassword,
+          textInputAction: TextInputAction.next,
+          autofillHints: const [AutofillHints.newPassword],
+          style: const TextStyle(color: AppColors.textPrimary),
+          decoration: InputDecoration(
+            hintText: 'Enter new password',
+            prefixIcon: const Icon(Icons.lock_outline),
+            suffixIcon: IconButton(
+              tooltip: _hideNewPassword ? 'Show password' : 'Hide password',
+              onPressed: () {
+                setState(() {
+                  _hideNewPassword = !_hideNewPassword;
+                });
+              },
+              icon: Icon(
+                _hideNewPassword
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
+              ),
+            ),
+          ),
+          validator: (value) {
+            if (value == null || value.length < 8 || value.length > 128) {
+              return 'Use 8–128 characters.';
+            }
+            return null;
+          },
+        ),
+
+        const SizedBox(height: 16),
+
+        const Text(
+          'Confirm new password',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+
+        const SizedBox(height: 9),
+
+        TextFormField(
+          controller: _confirmPasswordController,
+          enabled: !_isSubmitting,
+          obscureText: _hideConfirmPassword,
+          textInputAction: TextInputAction.done,
+          autofillHints: const [AutofillHints.newPassword],
+          style: const TextStyle(color: AppColors.textPrimary),
+          decoration: InputDecoration(
+            hintText: 'Confirm new password',
+            prefixIcon: const Icon(Icons.lock_outline),
+            suffixIcon: IconButton(
+              tooltip: _hideConfirmPassword ? 'Show password' : 'Hide password',
+              onPressed: () {
+                setState(() {
+                  _hideConfirmPassword = !_hideConfirmPassword;
+                });
+              },
+              icon: Icon(
+                _hideConfirmPassword
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
+              ),
+            ),
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Please confirm your password.';
+            }
+
+            if (value != _newPasswordController.text) {
+              return 'Passwords do not match.';
+            }
+
+            return null;
+          },
+          onFieldSubmitted: (_) {
+            _resetPassword();
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFeedback(String message, {required bool isError}) {
+    final color = isError ? AppColors.error : AppColors.success;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(AppRadius.medium),
+        border: Border.all(color: color),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          IconButton(
-            onPressed:
-                _isSubmitting ? null : widget.onBackToLogin,
-            icon: const Icon(
-              Icons.arrow_back_ios_new,
-              color: AppColors.textPrimary,
+          Icon(
+            isError ? Icons.error_outline : Icons.info_outline,
+            size: 20,
+            color: color,
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 13,
+                height: 1.5,
+              ),
             ),
-            tooltip: 'Back to Login',
           ),
         ],
       ),
     );
   }
 
-  Widget _buildBranding(
-    BuildContext context,
-  ) {
+  Widget _buildPrimaryButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: ElevatedButton.icon(
+        onPressed: _isSubmitting
+            ? null
+            : _step == _RecoveryStep.request
+            ? () => _requestRecovery()
+            : _resetPassword,
+        icon: _isSubmitting
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.black,
+                ),
+              )
+            : Icon(
+                _step == _RecoveryStep.request
+                    ? Icons.send_outlined
+                    : Icons.lock_reset_rounded,
+              ),
+        label: Text(
+          _isSubmitting
+              ? 'PLEASE WAIT...'
+              : _step == _RecoveryStep.request
+              ? 'SEND RECOVERY CODE'
+              : 'RESET PASSWORD',
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResendSection() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Column(
+        children: [
+          const Text(
+            "Didn't receive a code?",
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          ),
+          TextButton(
+            onPressed: _isSubmitting || _resendSeconds > 0
+                ? null
+                : () => _requestRecovery(resend: true),
+            child: Text(
+              _resendSeconds > 0
+                  ? 'Resend in ${_resendSeconds}s'
+                  : 'Resend Recovery Code',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooterLinks() {
     return Column(
       children: [
-        RichText(
-          textAlign: TextAlign.center,
-          text: TextSpan(
-            style: Theme.of(context)
-                .textTheme
-                .displaySmall
-                ?.copyWith(
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.5,
-                ),
-            children: const [
-              TextSpan(
-                text: 'g',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              TextSpan(
-                text: 'US',
-                style: TextStyle(
-                  color: AppColors.primary,
-                ),
-              ),
-              TextSpan(
-                text: 'o',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
+        TextButton.icon(
+          onPressed: _isSubmitting ? null : _returnToLogin,
+          icon: const Icon(Icons.arrow_back, size: 18),
+          label: const Text('Back to Login'),
         ),
 
-        const SizedBox(
-          height: AppSpacing.sm,
-        ),
+        const SizedBox(height: 4),
 
-        Text(
-          'Forgot Password?',
-          textAlign: TextAlign.center,
-          style: Theme.of(context)
-              .textTheme
-              .headlineSmall
-              ?.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w700,
-              ),
-        ),
-
-        const SizedBox(
-          height: 6,
-        ),
-
-        Text(
-          'Enter your email or contact number to recover your account.',
-          textAlign: TextAlign.center,
-          style: Theme.of(context)
-              .textTheme
-              .bodyMedium
-              ?.copyWith(
-                color: AppColors.textSecondary,
-                height: 1.4,
-              ),
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            const Text(
+              "Don't have an account?",
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            ),
+            TextButton(
+              onPressed: _isSubmitting ? null : _returnToRegister,
+              child: const Text('Register'),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildRecoveryCard(
-    BuildContext context,
-  ) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(
-        AppSpacing.lg,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceDark.withValues(
-          alpha: 0.88,
+  Widget _buildSuccessContent() {
+    return Column(
+      children: [
+        const SizedBox(height: 16),
+
+        const Icon(
+          Icons.check_circle_outline,
+          size: 75,
+          color: AppColors.success,
         ),
-        borderRadius: BorderRadius.circular(
-          AppRadius.large,
+
+        const SizedBox(height: 22),
+
+        const Text(
+          'Password Updated',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 25,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-        border: Border.all(
-          color: AppColors.borderLight,
+
+        const SizedBox(height: 16),
+
+        const Text(
+          'Your password has been changed successfully. '
+          'You can now sign in with your new password.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 15,
+            height: 1.5,
+          ),
         ),
-      ),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment:
-              CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Account Recovery',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
 
-            const SizedBox(
-              height: AppSpacing.sm,
-            ),
+        const SizedBox(height: 30),
 
-            Text(
-              'We will use this information to locate your account.',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(
-                    color: AppColors.textSecondary,
-                    height: 1.4,
-                  ),
-            ),
-
-            const SizedBox(
-              height: AppSpacing.lg,
-            ),
-
-            TextFormField(
-              controller:
-                  _identifierController,
-              keyboardType:
-                  TextInputType.emailAddress,
-              textInputAction:
-                  TextInputAction.done,
-              enabled: !_isSubmitting,
-              onFieldSubmitted: (_) {
-                _sendRecoveryRequest();
-              },
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-              ),
-              decoration:
-                  const InputDecoration(
-                labelText:
-                    'Email or Contact Number',
-                hintText:
-                    'Enter email or contact number',
-                prefixIcon: Icon(
-                  Icons.account_circle_outlined,
-                ),
-              ),
-              validator: (value) {
-                final input = value?.trim() ?? '';
-
-                if (input.isEmpty) {
-                  return 'Email or contact number is required.';
-                }
-
-                final looksLikeEmail = input.contains('@');
-
-                if (looksLikeEmail) {
-                  final emailPattern = RegExp(
-                    r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
-                  );
-
-                  if (!emailPattern.hasMatch(input)) {
-                    return 'Enter a valid email address.';
-                  }
-
-                  return null;
-                }
-
-                final digitsOnly = RegExp(r'^[0-9]+$');
-
-                if (!digitsOnly.hasMatch(input)) {
-                  return 'Enter a valid email or contact number.';
-                }
-
-                if (input.length < 10 || input.length > 11) {
-                  return 'Enter a valid contact number.';
-                }
-
-                return null;
-              },
-
-              autofillHints: const [
-                AutofillHints.email,
-                AutofillHints.telephoneNumber,
-              ],
-            ),
-
-            const SizedBox(
-              height: AppSpacing.xl,
-            ),
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed:
-                    _isSubmitting
-                        ? null
-                        : _sendRecoveryRequest,
-                icon: _isSubmitting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child:
-                            CircularProgressIndicator(
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Icon(
-                        Icons.send_outlined,
-                      ),
-                label: Text(
-                  _isSubmitting
-                      ? 'Sending...'
-                      : 'Send Recovery Code',
-                ),
-              ),
-            ),
-
-            const SizedBox(
-              height: AppSpacing.lg,
-            ),
-
-            Center(
-              child: TextButton.icon(
-                onPressed: _isSubmitting
-                    ? null
-                    : widget.onBackToLogin,
-                icon: const Icon(
-                  Icons.arrow_back_outlined,
-                ),
-                label: const Text(
-                  'Back to Login',
-                ),
-              ),
-            ),
-          ],
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton.icon(
+            onPressed: _returnToLogin,
+            icon: const Icon(Icons.login_rounded),
+            label: const Text('RETURN TO LOGIN'),
+          ),
         ),
-      ),
+
+        const SizedBox(height: 12),
+      ],
     );
   }
 }

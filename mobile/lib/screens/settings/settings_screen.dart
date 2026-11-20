@@ -1,16 +1,22 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
 import '../../app/theme.dart';
-import '../../providers/settings_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/classification_provider.dart';
+import '../../providers/settings_provider.dart';
+import '../../services/mobile_auth_service.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final settingsProvider = context.watch<SettingsProvider>();
+    final settings = context.watch<SettingsProvider>();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -29,7 +35,7 @@ class SettingsScreen extends StatelessWidget {
                 icon: Icons.visibility_outlined,
                 title: 'Result Display',
                 description:
-                    'Choose which information appears in classification results.',
+                    'Choose what appears in your classification results.',
               ),
 
               const SizedBox(height: AppSpacing.md),
@@ -40,16 +46,12 @@ class SettingsScreen extends StatelessWidget {
                     context,
                     icon: Icons.analytics_outlined,
                     title: 'Show Confidence',
-                    subtitle:
-                        'Display the classification confidence score.',
-                    value: settingsProvider.showConfidence,
-                    onChanged: settingsProvider.setShowConfidence,
+                    subtitle: 'Display the AI confidence score.',
+                    value: settings.showConfidence,
+                    onChanged: settings.setShowConfidence,
                   ),
 
-                  const Divider(
-                    color: AppColors.borderLight,
-                    height: 1,
-                  ),
+                  const Divider(color: AppColors.borderLight, height: 1),
 
                   _buildSwitchTile(
                     context,
@@ -57,8 +59,8 @@ class SettingsScreen extends StatelessWidget {
                     title: 'Show Image Quality',
                     subtitle:
                         'Display image-quality information when available.',
-                    value: settingsProvider.showImageQuality,
-                    onChanged: settingsProvider.setShowImageQuality,
+                    value: settings.showImageQuality,
+                    onChanged: settings.setShowImageQuality,
                   ),
                 ],
               ),
@@ -69,8 +71,7 @@ class SettingsScreen extends StatelessWidget {
                 context,
                 icon: Icons.tune_outlined,
                 title: 'Classification Behavior',
-                description:
-                    'Control how the app handles unfinished classification results.',
+                description: 'Manage unfinished classification results.',
               ),
 
               const SizedBox(height: AppSpacing.md),
@@ -81,11 +82,9 @@ class SettingsScreen extends StatelessWidget {
                     context,
                     icon: Icons.warning_amber_outlined,
                     title: 'Confirm Before Discard',
-                    subtitle:
-                        'Ask before leaving an unsaved classification result.',
-                    value: settingsProvider.confirmBeforeDiscard,
-                    onChanged:
-                        settingsProvider.setConfirmBeforeDiscard,
+                    subtitle: 'Ask before leaving an unsaved classification.',
+                    value: settings.confirmBeforeDiscard,
+                    onChanged: settings.setConfirmBeforeDiscard,
                   ),
                 ],
               ),
@@ -94,122 +93,35 @@ class SettingsScreen extends StatelessWidget {
 
               _buildSectionHeader(
                 context,
-                icon: Icons.storage_outlined,
-                title: 'Data & Storage',
-                description:
-                    'Information about classifications saved on this device.',
+                icon: Icons.manage_accounts_outlined,
+                title: 'Account',
+                description: 'Manage your account and sign-in session.',
               ),
 
               const SizedBox(height: AppSpacing.md),
 
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(
-                    AppRadius.large,
+              _buildSettingsCard(
+                children: [
+                  _buildAccountTile(
+                    context,
+                    icon: Icons.logout_outlined,
+                    title: 'Logout',
+                    subtitle: 'Sign out of your gUSo account.',
+                    onTap: () => _showLogoutDialog(context),
+                    isDanger: false,
                   ),
-                  border: Border.all(
-                    color: AppColors.borderLight,
+
+                  const Divider(color: AppColors.borderLight, height: 1),
+
+                  _buildAccountTile(
+                    context,
+                    icon: Icons.delete_forever_outlined,
+                    title: 'Delete Account',
+                    subtitle: 'Permanently delete your account and saved data.',
+                    onTap: () => _showDeleteAccountDialog(context),
+                    isDanger: true,
                   ),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryDark,
-                        borderRadius: BorderRadius.circular(
-                          AppRadius.medium,
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.info_outline,
-                        color: AppColors.primary,
-                        size: 22,
-                      ),
-                    ),
-
-                    const SizedBox(width: AppSpacing.md),
-
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Classification Records',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleSmall
-                                ?.copyWith(
-                                  color: AppColors.textPrimary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Saved classifications are currently available '
-                            'during the active app session. Permanent storage '
-                            'can be connected when the backend and storage '
-                            'integration are added.',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.copyWith(
-                                  color: AppColors.textSecondary,
-                                  height: 1.5,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: AppSpacing.xl),
-
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    _showResetDialog(
-                      context,
-                      settingsProvider,
-                    );
-                  },
-                  icon: const Icon(
-                    Icons.restart_alt_outlined,
-                  ),
-                  label: const Text(
-                    'Reset Settings',
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: AppSpacing.md),
-
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    _showLogoutDialog(context);
-                  },
-                  icon: const Icon(
-                    Icons.logout_outlined,
-                    color: AppColors.error,
-                  ),
-                  label: const Text(
-                    'Logout',
-                    style: TextStyle(
-                      color: AppColors.error,
-                    ),
-                  ),
-                ),
+                ],
               ),
 
               const SizedBox(height: AppSpacing.xl),
@@ -229,12 +141,8 @@ class SettingsScreen extends StatelessWidget {
           height: 46,
           decoration: BoxDecoration(
             color: AppColors.primaryDark,
-            borderRadius: BorderRadius.circular(
-              AppRadius.medium,
-            ),
-            border: Border.all(
-              color: AppColors.primary,
-            ),
+            borderRadius: BorderRadius.circular(AppRadius.medium),
+            border: Border.all(color: AppColors.primary),
           ),
           child: const Icon(
             Icons.settings_outlined,
@@ -251,24 +159,18 @@ class SettingsScreen extends StatelessWidget {
             children: [
               Text(
                 'Settings',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
+
               const SizedBox(height: 4),
+
               Text(
-                'Customize how gUSo displays and handles classification results.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(
-                      color: AppColors.textSecondary,
-                      height: 1.4,
-                    ),
+                'Manage your preferences and account.',
+                style: Theme.of(context).textTheme.bodyMedium
+                    ?.copyWith(color: AppColors.textSecondary),
               ),
             ],
           ),
@@ -286,11 +188,7 @@ class SettingsScreen extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          color: AppColors.primary,
-          size: 21,
-        ),
+        Icon(icon, color: AppColors.primary, size: 21),
 
         const SizedBox(width: AppSpacing.sm),
 
@@ -300,24 +198,18 @@ class SettingsScreen extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
+
               const SizedBox(height: 4),
+
               Text(
                 description,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(
-                      color: AppColors.textSecondary,
-                      height: 1.4,
-                    ),
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: AppColors.textSecondary, height: 1.4),
               ),
             ],
           ),
@@ -326,23 +218,15 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSettingsCard({
-    required List<Widget> children,
-  }) {
+  Widget _buildSettingsCard({required List<Widget> children}) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(
-          AppRadius.large,
-        ),
-        border: Border.all(
-          color: AppColors.borderLight,
-        ),
+        borderRadius: BorderRadius.circular(AppRadius.large),
+        border: Border.all(color: AppColors.borderLight),
       ),
-      child: Column(
-        children: children,
-      ),
+      child: Column(children: children),
     );
   }
 
@@ -363,18 +247,10 @@ class SettingsScreen extends StatelessWidget {
             height: 42,
             decoration: BoxDecoration(
               color: AppColors.surfaceDark,
-              borderRadius: BorderRadius.circular(
-                AppRadius.medium,
-              ),
-              border: Border.all(
-                color: AppColors.borderLight,
-              ),
+              borderRadius: BorderRadius.circular(AppRadius.medium),
+              border: Border.all(color: AppColors.borderLight),
             ),
-            child: Icon(
-              icon,
-              color: AppColors.primary,
-              size: 21,
-            ),
+            child: Icon(icon, color: AppColors.primary, size: 21),
           ),
 
           const SizedBox(width: AppSpacing.md),
@@ -385,24 +261,18 @@ class SettingsScreen extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleSmall
-                      ?.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
+
                 const SizedBox(height: 4),
+
                 Text(
                   subtitle,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(
-                        color: AppColors.textSecondary,
-                        height: 1.4,
-                      ),
+                  style: Theme.of(context).textTheme.bodySmall
+                      ?.copyWith(color: AppColors.textSecondary, height: 1.4),
                 ),
               ],
             ),
@@ -410,86 +280,81 @@ class SettingsScreen extends StatelessWidget {
 
           const SizedBox(width: AppSpacing.sm),
 
-          Switch(
-            value: value,
-            onChanged: onChanged,
-          ),
+          Switch(value: value, onChanged: onChanged),
         ],
       ),
     );
   }
 
-  Future<void> _showResetDialog(
-    BuildContext context,
-    SettingsProvider settingsProvider,
-  ) async {
-    final shouldReset = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: AppColors.surface,
-          title: const Text(
-            'Reset settings?',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-            ),
-          ),
-          content: const Text(
-            'All display and classification behavior settings '
-            'will return to their default values.',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop(false);
-              },
-              child: const Text(
-                'Cancel',
+  Widget _buildAccountTile(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    required bool isDanger,
+  }) {
+    final color = isDanger ? AppColors.error : AppColors.textPrimary;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.large),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceDark,
+                  borderRadius: BorderRadius.circular(AppRadius.medium),
+                  border: Border.all(color: AppColors.borderLight),
+                ),
+                child: Icon(icon, color: color, size: 22),
               ),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop(true);
-              },
-              child: const Text(
-                'Reset',
-                style: TextStyle(
-                  color: AppColors.primary,
+
+              const SizedBox(width: AppSpacing.md),
+
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleSmall
+                          ?.copyWith(color: color, fontWeight: FontWeight.w600),
+                    ),
+
+                    const SizedBox(height: 4),
+
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.textSecondary,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
-        );
-      },
-    );
 
-    if (shouldReset != true) {
-      return;
-    }
+              const SizedBox(width: AppSpacing.sm),
 
-    settingsProvider.resetToDefaults();
-
-    if (!context.mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Settings restored to defaults.',
+              Icon(
+                Icons.chevron_right_rounded,
+                color: isDanger ? AppColors.error : AppColors.textSecondary,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // Logout dialog to confirm user action before logging out
-
-  Future<void> _showLogoutDialog(
-    BuildContext context,
-  ) async {
+  Future<void> _showLogoutDialog(BuildContext context) async {
     final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
@@ -497,38 +362,26 @@ class SettingsScreen extends StatelessWidget {
           backgroundColor: AppColors.surface,
           title: const Text(
             'Logout?',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-            ),
+            style: TextStyle(color: AppColors.textPrimary),
           ),
           content: const Text(
             'You will return to the Login screen.',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-            ),
+            style: TextStyle(color: AppColors.textSecondary),
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(
-                  dialogContext,
-                ).pop(false);
+                Navigator.of(dialogContext).pop(false);
               },
-              child: const Text(
-                'Cancel',
-              ),
+              child: const Text('Cancel'),
             ),
             TextButton(
               onPressed: () {
-                Navigator.of(
-                  dialogContext,
-                ).pop(true);
+                Navigator.of(dialogContext).pop(true);
               },
               child: const Text(
                 'Logout',
-                style: TextStyle(
-                  color: AppColors.error,
-                ),
+                style: TextStyle(color: AppColors.error),
               ),
             ),
           ],
@@ -536,14 +389,274 @@ class SettingsScreen extends StatelessWidget {
       },
     );
 
-    if (shouldLogout != true ||
-        !context.mounted) {
+    if (shouldLogout != true || !context.mounted) {
       return;
     }
 
-    context
-        .read<AuthProvider>()
-        .logout();
+    context.read<AuthProvider>().logout();
   }
-  
+
+  Future<void> _showDeleteAccountDialog(BuildContext context) async {
+    final passwordController = TextEditingController();
+
+    bool isDeleting = false;
+    bool hidePassword = true;
+    String? errorMessage;
+
+    try {
+      final deleted = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          return StatefulBuilder(
+            builder: (dialogContext, setDialogState) {
+              Future<void> submitDeletion() async {
+                if (isDeleting) return;
+
+                final password = passwordController.text;
+
+                if (password.isEmpty) {
+                  setDialogState(() {
+                    errorMessage = 'Enter your current password.';
+                  });
+                  return;
+                }
+
+                final token = MobileAuthService.accessToken;
+
+                if (token == null || token.isEmpty) {
+                  setDialogState(() {
+                    errorMessage =
+                        'Your session has expired. '
+                        'Please log in again.';
+                  });
+                  return;
+                }
+
+                setDialogState(() {
+                  isDeleting = true;
+                  errorMessage = null;
+                });
+
+                bool deletionConfirmed = false;
+
+                try {
+                  final response = await http
+                      .delete(
+                        Uri.parse('${MobileAuthService.baseUrl}/auth/account'),
+                        headers: {
+                          'Authorization': 'Bearer $token',
+                          'Content-Type': 'application/json',
+                          'Accept': 'application/json',
+                        },
+                        body: jsonEncode({'password': password}),
+                      )
+                      .timeout(const Duration(seconds: 30));
+
+                  if (!dialogContext.mounted) return;
+
+                  bool succeeded = response.statusCode == 204;
+
+                  Map<String, dynamic>? body;
+
+                  if (response.body.isNotEmpty) {
+                    try {
+                      final decoded = jsonDecode(response.body);
+                      if (decoded is Map) {
+                        body = Map<String, dynamic>.from(decoded);
+                      }
+                    } catch (_) {
+                      // An invalid response is not success.
+                    }
+                  }
+
+                  if (response.statusCode == 200 && body?['deleted'] == true) {
+                    succeeded = true;
+                  }
+
+                  if (succeeded) {
+                    deletionConfirmed = true;
+                    Navigator.of(dialogContext).pop(true);
+                    return;
+                  }
+
+                  String message = 'Unable to delete your account.';
+
+                  if (response.statusCode == 404 ||
+                      response.statusCode == 405) {
+                    message =
+                        'Account deletion is not available '
+                        'on this backend yet.';
+                  } else if (response.statusCode == 401) {
+                    message =
+                        'Your session has expired or '
+                        'your credentials were rejected.';
+                  } else if (body?['detail'] is String) {
+                    message = body!['detail'] as String;
+                  }
+
+                  setDialogState(() {
+                    errorMessage = message;
+                  });
+                } on TimeoutException {
+                  if (!dialogContext.mounted) return;
+
+                  setDialogState(() {
+                    errorMessage =
+                        'The request timed out. Check '
+                        'your connection before retrying.';
+                  });
+                } catch (_) {
+                  if (!dialogContext.mounted) return;
+
+                  setDialogState(() {
+                    errorMessage =
+                        'Could not reach FastAPI. '
+                        'Your account has not been confirmed '
+                        'as deleted.';
+                  });
+                } finally {
+                  if (!deletionConfirmed && dialogContext.mounted) {
+                    setDialogState(() {
+                      isDeleting = false;
+                    });
+                  }
+                }
+              }
+
+              return AlertDialog(
+                backgroundColor: AppColors.surface,
+                title: const Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: AppColors.error),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Delete Account?',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'This action permanently deletes '
+                        'your gUSo account and its saved '
+                        'classification records and images. '
+                        'It cannot be undone.',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          height: 1.5,
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      const Text(
+                        'Confirm your password',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      TextField(
+                        controller: passwordController,
+                        enabled: !isDeleting,
+                        obscureText: hidePassword,
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (_) {
+                          submitDeletion();
+                        },
+                        style: const TextStyle(color: AppColors.textPrimary),
+                        decoration: InputDecoration(
+                          hintText: 'Current password',
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            tooltip: hidePassword
+                                ? 'Show password'
+                                : 'Hide password',
+                            onPressed: isDeleting
+                                ? null
+                                : () {
+                                    setDialogState(() {
+                                      hidePassword = !hidePassword;
+                                    });
+                                  },
+                            icon: Icon(
+                              hidePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      if (errorMessage != null) ...[
+                        const SizedBox(height: 14),
+
+                        Text(
+                          errorMessage!,
+                          style: const TextStyle(
+                            color: AppColors.error,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: isDeleting
+                        ? null
+                        : () {
+                            Navigator.of(dialogContext).pop(false);
+                          },
+                    child: const Text('Cancel'),
+                  ),
+
+                  TextButton(
+                    onPressed: isDeleting ? null : submitDeletion,
+                    child: isDeleting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text(
+                            'Delete Account',
+                            style: TextStyle(
+                              color: AppColors.error,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+
+      if (deleted != true || !context.mounted) {
+        return;
+      }
+
+      // Run only after the backend confirms deletion.
+      context.read<ClassificationProvider>().clearHistory();
+      context.read<AuthProvider>().logout();
+    } finally {
+      passwordController.dispose();
+    }
+  }
 }

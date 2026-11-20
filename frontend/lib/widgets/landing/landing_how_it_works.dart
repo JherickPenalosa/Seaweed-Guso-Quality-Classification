@@ -26,8 +26,8 @@ class LandingHowItWorks extends StatelessWidget {
         final horizontalPadding = isDesktop
             ? 64.0
             : isMobile
-                ? 20.0
-                : 36.0;
+            ? 20.0
+            : 36.0;
 
         final verticalPadding = isMobile ? 76.0 : 100.0;
 
@@ -37,31 +37,19 @@ class LandingHowItWorks extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF061A06),
-                Color(0xFF0B300B),
-                Color(0xFF051505),
-              ],
-              stops: [
-                0.0,
-                0.50,
-                1.0,
-              ],
+              colors: [Color(0xFF061A06), Color(0xFF0B300B), Color(0xFF051505)],
+              stops: [0.0, 0.50, 1.0],
             ),
           ),
           child: Stack(
             children: [
               const Positioned.fill(
-                child: IgnorePointer(
-                  child: _HowItWorksBackground(),
-                ),
+                child: IgnorePointer(child: _HowItWorksBackground()),
               ),
 
               Center(
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: maxContentWidth,
-                  ),
+                  constraints: BoxConstraints(maxWidth: maxContentWidth),
                   child: Padding(
                     padding: EdgeInsets.symmetric(
                       horizontal: horizontalPadding,
@@ -71,22 +59,16 @@ class LandingHowItWorks extends StatelessWidget {
                       children: [
                         const _SectionHeader(),
 
-                        SizedBox(
-                          height: isMobile ? 42 : 58,
-                        ),
+                        SizedBox(height: isMobile ? 42 : 58),
 
                         _ProcessLayout(
                           isDesktop: isDesktop,
                           isMobile: isMobile,
                         ),
 
-                        SizedBox(
-                          height: isMobile ? 34 : 46,
-                        ),
+                        SizedBox(height: isMobile ? 34 : 46),
 
-                        _WorkflowStrip(
-                          isMobile: isMobile,
-                        ),
+                        _WorkflowStrip(isMobile: isMobile),
                       ],
                     ),
                   ),
@@ -108,21 +90,12 @@ class _SectionHeader extends StatelessWidget {
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 9,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
           decoration: BoxDecoration(
-            color: AppColors.surfaceDark.withValues(
-              alpha: 0.82,
-            ),
-            borderRadius: BorderRadius.circular(
-              AppRadius.extraLarge,
-            ),
+            color: AppColors.surfaceDark.withValues(alpha: 0.82),
+            borderRadius: BorderRadius.circular(AppRadius.extraLarge),
             border: Border.all(
-              color: AppColors.primary.withValues(
-                alpha: 0.75,
-              ),
+              color: AppColors.primary.withValues(alpha: 0.75),
             ),
           ),
           child: const Row(
@@ -152,18 +125,12 @@ class _SectionHeader extends StatelessWidget {
         const Text.rich(
           TextSpan(
             children: [
-              TextSpan(
-                text: 'From Image to Clear ',
-              ),
+              TextSpan(text: 'From Image to Clear '),
               TextSpan(
                 text: 'Guso',
-                style: TextStyle(
-                  color: AppColors.primary,
-                ),
+                style: TextStyle(color: AppColors.primary),
               ),
-              TextSpan(
-                text: ' Quality Insights',
-              ),
+              TextSpan(text: ' Quality Insights'),
             ],
           ),
           textAlign: TextAlign.center,
@@ -179,9 +146,7 @@ class _SectionHeader extends StatelessWidget {
         const SizedBox(height: 18),
 
         ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: 860,
-          ),
+          constraints: const BoxConstraints(maxWidth: 860),
           child: const Text(
             'gUSo keeps the classification process simple. Upload a clear '
             'guso image, let the system analyze its visible characteristics, '
@@ -200,10 +165,7 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _ProcessLayout extends StatelessWidget {
-  const _ProcessLayout({
-    required this.isDesktop,
-    required this.isMobile,
-  });
+  const _ProcessLayout({required this.isDesktop, required this.isMobile});
 
   final bool isDesktop;
   final bool isMobile;
@@ -222,31 +184,26 @@ class _ProcessLayout extends StatelessWidget {
         number: '02',
         icon: Icons.image_search_outlined,
         title: 'Analyze',
-        description:
-            'The system processes visible image characteristics for classification.',
+        description: 'The system processes visible image characteristics for classification.',
       ),
       const _ProcessStep(
         number: '03',
         icon: Icons.bar_chart_rounded,
         title: 'View Results',
-        description:
-            'Review quality, freshness, confidence, image condition, and visible traits.',
+        description: 'Review quality, freshness, confidence, image condition, and visible traits.',
       ),
       const _ProcessStep(
         number: '04',
         icon: Icons.bookmark_border_rounded,
         title: 'Save or Continue',
-        description:
-            'Save the result for later review or upload another image for assessment.',
+        description: 'Save the result for later review or upload another image for assessment.',
       ),
     ];
 
     if (isMobile) {
       return Column(
         children: [
-          for (int index = 0;
-              index < steps.length;
-              index++) ...[
+          for (int index = 0; index < steps.length; index++) ...[
             steps[index],
             if (index < steps.length - 1) ...[
               const SizedBox(height: 14),
@@ -264,11 +221,7 @@ class _ProcessLayout extends StatelessWidget {
         runSpacing: 22,
         children: [
           for (final step in steps)
-            SizedBox(
-              width: 330,
-              height: 320,
-              child: step,
-            ),
+            SizedBox(width: 330, height: 320, child: step),
         ],
       );
     }
@@ -276,39 +229,19 @@ class _ProcessLayout extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Expanded(
-          child: SizedBox(
-            height: 328,
-            child: steps[0],
-          ),
-        ),
+        Expanded(child: SizedBox(height: 328, child: steps[0])),
 
         const _HorizontalConnector(),
 
-        Expanded(
-          child: SizedBox(
-            height: 328,
-            child: steps[1],
-          ),
-        ),
+        Expanded(child: SizedBox(height: 328, child: steps[1])),
 
         const _HorizontalConnector(),
 
-        Expanded(
-          child: SizedBox(
-            height: 328,
-            child: steps[2],
-          ),
-        ),
+        Expanded(child: SizedBox(height: 328, child: steps[2])),
 
         const _HorizontalConnector(),
 
-        Expanded(
-          child: SizedBox(
-            height: 328,
-            child: steps[3],
-          ),
-        ),
+        Expanded(child: SizedBox(height: 328, child: steps[3])),
       ],
     );
   }
@@ -328,8 +261,7 @@ class _ProcessStep extends StatefulWidget {
   final String description;
 
   @override
-  State<_ProcessStep> createState() =>
-      _ProcessStepState();
+  State<_ProcessStep> createState() => _ProcessStepState();
 }
 
 class _ProcessStepState extends State<_ProcessStep> {
@@ -349,50 +281,30 @@ class _ProcessStepState extends State<_ProcessStep> {
         });
       },
       child: AnimatedContainer(
-        duration: const Duration(
-          milliseconds: 180,
-        ),
+        duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
         width: double.infinity,
         padding: const EdgeInsets.all(28),
-        transform: Matrix4.translationValues(
-          0,
-          _hovered ? -5 : 0,
-          0,
-        ),
+        transform: Matrix4.translationValues(0, _hovered ? -5 : 0, 0),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(
-            AppRadius.large,
-          ),
+          borderRadius: BorderRadius.circular(AppRadius.large),
           border: Border.all(
             color: _hovered
-                ? AppColors.primary.withValues(
-                    alpha: 0.95,
-                  )
-                : AppColors.primary.withValues(
-                    alpha: 0.48,
-                  ),
+                ? AppColors.primary.withValues(alpha: 0.95)
+                : AppColors.primary.withValues(alpha: 0.48),
             width: _hovered ? 1.5 : 1.1,
           ),
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: _hovered
-                ? const [
-                    Color(0xFF16480F),
-                    Color(0xFF0B2C08),
-                  ]
-                : const [
-                    Color(0xFF10350C),
-                    Color(0xFF092507),
-                  ],
+                ? const [Color(0xFF16480F), Color(0xFF0B2C08)]
+                : const [Color(0xFF10350C), Color(0xFF092507)],
           ),
           boxShadow: _hovered
               ? [
                   BoxShadow(
-                    color: AppColors.primary.withValues(
-                      alpha: 0.11,
-                    ),
+                    color: AppColors.primary.withValues(alpha: 0.11),
                     blurRadius: 28,
                     offset: const Offset(0, 10),
                   ),
@@ -409,9 +321,7 @@ class _ProcessStepState extends State<_ProcessStep> {
                 height: 160,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.primary.withValues(
-                    alpha: 0.025,
-                  ),
+                  color: AppColors.primary.withValues(alpha: 0.025),
                 ),
               ),
             ),
@@ -422,15 +332,12 @@ class _ProcessStepState extends State<_ProcessStep> {
               child: Icon(
                 Icons.eco_rounded,
                 size: 145,
-                color: AppColors.primary.withValues(
-                  alpha: 0.045,
-                ),
+                color: AppColors.primary.withValues(alpha: 0.045),
               ),
             ),
 
             Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
@@ -439,15 +346,9 @@ class _ProcessStepState extends State<_ProcessStep> {
                       height: 60,
                       decoration: BoxDecoration(
                         color: AppColors.primaryDark,
-                        borderRadius:
-                            BorderRadius.circular(
-                          AppRadius.medium,
-                        ),
+                        borderRadius: BorderRadius.circular(AppRadius.medium),
                         border: Border.all(
-                          color: AppColors.primary
-                              .withValues(
-                            alpha: 0.28,
-                          ),
+                          color: AppColors.primary.withValues(alpha: 0.28),
                         ),
                       ),
                       child: Icon(
@@ -462,9 +363,7 @@ class _ProcessStepState extends State<_ProcessStep> {
                     Text(
                       widget.number,
                       style: TextStyle(
-                        color: AppColors.primary.withValues(
-                          alpha: 0.76,
-                        ),
+                        color: AppColors.primary.withValues(alpha: 0.76),
                         fontSize: 31,
                         fontWeight: FontWeight.w800,
                       ),
@@ -518,12 +417,8 @@ class _HorizontalConnector extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    AppColors.primary.withValues(
-                      alpha: 0.18,
-                    ),
-                    AppColors.primary.withValues(
-                      alpha: 0.85,
-                    ),
+                    AppColors.primary.withValues(alpha: 0.18),
+                    AppColors.primary.withValues(alpha: 0.85),
                   ],
                 ),
               ),
@@ -536,15 +431,10 @@ class _HorizontalConnector extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: const Color(0xFF061806),
-              border: Border.all(
-                color: AppColors.primary,
-                width: 1.6,
-              ),
+              border: Border.all(color: AppColors.primary, width: 1.6),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primary.withValues(
-                    alpha: 0.12,
-                  ),
+                  color: AppColors.primary.withValues(alpha: 0.12),
                   blurRadius: 12,
                 ),
               ],
@@ -562,12 +452,8 @@ class _HorizontalConnector extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    AppColors.primary.withValues(
-                      alpha: 0.85,
-                    ),
-                    AppColors.primary.withValues(
-                      alpha: 0.18,
-                    ),
+                    AppColors.primary.withValues(alpha: 0.85),
+                    AppColors.primary.withValues(alpha: 0.18),
                   ],
                 ),
               ),
@@ -589,9 +475,7 @@ class _VerticalConnector extends StatelessWidget {
         Container(
           width: 1.4,
           height: 20,
-          color: AppColors.primary.withValues(
-            alpha: 0.55,
-          ),
+          color: AppColors.primary.withValues(alpha: 0.55),
         ),
 
         Container(
@@ -600,10 +484,7 @@ class _VerticalConnector extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: const Color(0xFF061806),
-            border: Border.all(
-              color: AppColors.primary,
-              width: 1.5,
-            ),
+            border: Border.all(color: AppColors.primary, width: 1.5),
           ),
           child: const Icon(
             Icons.keyboard_arrow_down_rounded,
@@ -615,9 +496,7 @@ class _VerticalConnector extends StatelessWidget {
         Container(
           width: 1.4,
           height: 20,
-          color: AppColors.primary.withValues(
-            alpha: 0.55,
-          ),
+          color: AppColors.primary.withValues(alpha: 0.55),
         ),
       ],
     );
@@ -625,45 +504,29 @@ class _VerticalConnector extends StatelessWidget {
 }
 
 class _WorkflowStrip extends StatelessWidget {
-  const _WorkflowStrip({
-    required this.isMobile,
-  });
+  const _WorkflowStrip({required this.isMobile});
 
   final bool isMobile;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(
-        maxWidth: 940,
-      ),
+      constraints: const BoxConstraints(maxWidth: 940),
       padding: EdgeInsets.symmetric(
         horizontal: isMobile ? 20 : 30,
         vertical: isMobile ? 20 : 22,
       ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(
-          AppRadius.extraLarge,
-        ),
-        border: Border.all(
-          color: AppColors.primary.withValues(
-            alpha: 0.68,
-          ),
-        ),
+        borderRadius: BorderRadius.circular(AppRadius.extraLarge),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.68)),
         gradient: const LinearGradient(
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
-          colors: [
-            Color(0xFF0A2408),
-            Color(0xFF153F10),
-            Color(0xFF0A2208),
-          ],
+          colors: [Color(0xFF0A2408), Color(0xFF153F10), Color(0xFF0A2208)],
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(
-              alpha: 0.06,
-            ),
+            color: AppColors.primary.withValues(alpha: 0.06),
             blurRadius: 20,
           ),
         ],
@@ -690,8 +553,7 @@ class _WorkflowStrip extends StatelessWidget {
               ],
             )
           : const Row(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
                   Icons.science_outlined,
@@ -703,9 +565,7 @@ class _WorkflowStrip extends StatelessWidget {
 
                 SizedBox(
                   height: 40,
-                  child: VerticalDivider(
-                    color: AppColors.disabled,
-                  ),
+                  child: VerticalDivider(color: AppColors.disabled),
                 ),
 
                 SizedBox(width: 22),
@@ -742,13 +602,9 @@ class _HowItWorksBackground extends StatelessWidget {
             width: 560,
             height: 420,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(
-                999,
-              ),
+              borderRadius: BorderRadius.circular(999),
               border: Border.all(
-                color: AppColors.primary.withValues(
-                  alpha: 0.07,
-                ),
+                color: AppColors.primary.withValues(alpha: 0.07),
                 width: 1.2,
               ),
             ),
@@ -764,13 +620,9 @@ class _HowItWorksBackground extends StatelessWidget {
               width: 660,
               height: 280,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(
-                  999,
-                ),
+                borderRadius: BorderRadius.circular(999),
                 border: Border.all(
-                  color: AppColors.primary.withValues(
-                    alpha: 0.045,
-                  ),
+                  color: AppColors.primary.withValues(alpha: 0.045),
                 ),
               ),
             ),
@@ -785,9 +637,7 @@ class _HowItWorksBackground extends StatelessWidget {
             height: 520,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.primary.withValues(
-                alpha: 0.032,
-              ),
+              color: AppColors.primary.withValues(alpha: 0.032),
             ),
           ),
         ),
@@ -800,9 +650,7 @@ class _HowItWorksBackground extends StatelessWidget {
             child: Icon(
               Icons.eco_rounded,
               size: 250,
-              color: AppColors.primary.withValues(
-                alpha: 0.055,
-              ),
+              color: AppColors.primary.withValues(alpha: 0.055),
             ),
           ),
         ),
@@ -815,9 +663,7 @@ class _HowItWorksBackground extends StatelessWidget {
             child: Icon(
               Icons.eco_rounded,
               size: 280,
-              color: AppColors.primary.withValues(
-                alpha: 0.050,
-              ),
+              color: AppColors.primary.withValues(alpha: 0.050),
             ),
           ),
         ),
