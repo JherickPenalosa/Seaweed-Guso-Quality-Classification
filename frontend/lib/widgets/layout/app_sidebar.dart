@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../app/theme.dart';
 import '../../models/classification_record.dart';
 import '../../providers/classification_provider.dart';
+import '../../services/auth_service.dart';
 
 import '../../widgets/common/skeleton_box.dart';
 
@@ -19,10 +20,18 @@ class AppSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final classificationProvider =
-        context.watch<ClassificationProvider>();
+    final classificationProvider = context.watch<ClassificationProvider>();
 
+    // Full records (including images) remain available within this session.
     final records = classificationProvider.records;
+    final fullRecordIds = records.map((record) => record.id).toSet();
+
+    // Database-backed summaries survive browser refresh. Exclude entries
+    // whose full record is already in the list to avoid duplicates.
+    final savedSummaries = classificationProvider.savedSummaries
+        .where((summary) => !fullRecordIds.contains(summary.id.toString()))
+        .toList(growable: false);
+    final savedCount = records.length + savedSummaries.length;
 
     return Container(
       width: 280,
@@ -33,28 +42,18 @@ class AppSidebar extends StatelessWidget {
 
           // User / Profile section
           Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 18,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 18),
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 18,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
               decoration: BoxDecoration(
                 color: AppColors.surface,
-                borderRadius: BorderRadius.circular(
-                  AppRadius.medium,
-                ),
-                border: Border.all(
-                  color: AppColors.borderPrimary,
-                  width: 1.5,
-                ),
+                borderRadius: BorderRadius.circular(AppRadius.medium),
+                border: Border.all(color: AppColors.borderPrimary, width: 1.5),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  CircleAvatar(
+                  const CircleAvatar(
                     radius: 22,
                     backgroundColor: AppColors.primaryDark,
                     child: Icon(
@@ -63,15 +62,27 @@ class AppSidebar extends StatelessWidget {
                       size: 26,
                     ),
                   ),
-                  SizedBox(width: 14),
+                  const SizedBox(width: 14),
                   Expanded(
-                    child: Text(
-                      'USER',
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: ValueListenableBuilder<String?>(
+                      valueListenable: AuthService.displayNameListenable,
+                      builder: (context, fullName, _) {
+                        final displayName =
+                            (fullName == null || fullName.trim().isEmpty)
+                            ? 'Account'
+                            : fullName;
+
+                        return Text(
+                          displayName,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -83,9 +94,7 @@ class AppSidebar extends StatelessWidget {
 
           // Features section
           const Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: 22,
-            ),
+            padding: EdgeInsets.symmetric(horizontal: 22),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
@@ -126,9 +135,7 @@ class AppSidebar extends StatelessWidget {
 
           // History / Records title
           Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 22,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 22),
             child: Row(
               children: [
                 const Expanded(
@@ -142,7 +149,7 @@ class AppSidebar extends StatelessWidget {
                   ),
                 ),
 
-                if (records.isNotEmpty)
+                if (savedCount > 0)
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -150,12 +157,10 @@ class AppSidebar extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: AppColors.primaryDark,
-                      borderRadius: BorderRadius.circular(
-                        20,
-                      ),
+                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      records.length.toString(),
+                      savedCount.toString(),
                       style: const TextStyle(
                         color: AppColors.primary,
                         fontSize: 11,
@@ -169,13 +174,61 @@ class AppSidebar extends StatelessWidget {
 
           const SizedBox(height: 12),
 
-          // Dynamic record list
+          // Show current-session full records and saved database summaries.
           Expanded(
-            child: _buildHistorySection(
-              context,
-              classificationProvider,
-              records,
-            ),
+            child: savedCount == 0
+                ? classificationProvider.isLoadingHistory
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.primary,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : classificationProvider.historyError != null
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 22),
+                          child: Text(
+                            'Unable to load saved records. Open History to retry.',
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 13,
+                            ),
+                          ),
+                        )
+                      : const _EmptyHistory()
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    itemCount: savedCount,
+                    separatorBuilder: (_, _) => const SizedBox(height: 6),
+                    itemBuilder: (context, index) {
+                      if (index < records.length) {
+                        final record = records[index];
+                        final isSelected =
+                            classificationProvider.selectedRecord?.id ==
+                            record.id;
+
+                        return _HistoryRecordItem(
+                          record: record,
+                          isSelected: isSelected,
+                          onTap: () {
+                            context.read<ClassificationProvider>().selectRecord(
+                              record,
+                            );
+                            onMenuSelected(2);
+                          },
+                        );
+                      }
+
+                      final summary = savedSummaries[index - records.length];
+                      return _HistorySummaryItem(
+                        summary: summary,
+                        onTap: () {
+                          // Open History; summary selection is handled there.
+                          onMenuSelected(2);
+                        },
+                      );
+                    },
+                  ),
           ),
 
           // Settings
@@ -263,28 +316,16 @@ class _SidebarItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 4,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       child: Material(
-        color: isSelected
-            ? AppColors.primaryDark
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(
-          AppRadius.medium,
-        ),
+        color: isSelected ? AppColors.primaryDark : Colors.transparent,
+        borderRadius: BorderRadius.circular(AppRadius.medium),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(
-            AppRadius.medium,
-          ),
+          borderRadius: BorderRadius.circular(AppRadius.medium),
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 18,
-              vertical: 15,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
             child: Row(
               children: [
                 Icon(
@@ -304,9 +345,7 @@ class _SidebarItem extends StatelessWidget {
                         ? AppColors.textPrimary
                         : AppColors.textSecondary,
                     fontSize: 15,
-                    fontWeight: isSelected
-                        ? FontWeight.w600
-                        : FontWeight.w500,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                   ),
                 ),
               ],
@@ -324,9 +363,7 @@ class _EmptyHistory extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: 22,
-      ),
+      padding: EdgeInsets.symmetric(horizontal: 22),
       child: Align(
         alignment: Alignment.topLeft,
         child: Row(
@@ -343,10 +380,7 @@ class _EmptyHistory extends StatelessWidget {
             Expanded(
               child: Text(
                 'No saved records yet',
-                style: TextStyle(
-                  color: AppColors.textMuted,
-                  fontSize: 13,
-                ),
+                style: TextStyle(color: AppColors.textMuted, fontSize: 13),
               ),
             ),
           ],
@@ -534,22 +568,13 @@ class _HistoryRecordItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: isSelected
-          ? AppColors.primaryDark
-          : Colors.transparent,
-      borderRadius: BorderRadius.circular(
-        AppRadius.small,
-      ),
+      color: isSelected ? AppColors.primaryDark : Colors.transparent,
+      borderRadius: BorderRadius.circular(AppRadius.small),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(
-          AppRadius.small,
-        ),
+        borderRadius: BorderRadius.circular(AppRadius.small),
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 10,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           child: Row(
             children: [
               Container(
@@ -557,13 +582,9 @@ class _HistoryRecordItem extends StatelessWidget {
                 height: 36,
                 decoration: BoxDecoration(
                   color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(
-                    AppRadius.small,
-                  ),
+                  borderRadius: BorderRadius.circular(AppRadius.small),
                   border: Border.all(
-                    color: isSelected
-                        ? AppColors.primary
-                        : AppColors.disabled,
+                    color: isSelected ? AppColors.primary : AppColors.disabled,
                   ),
                 ),
                 child: const Icon(
@@ -577,14 +598,12 @@ class _HistoryRecordItem extends StatelessWidget {
 
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       record.displayTitle,
                       maxLines: 1,
-                      overflow:
-                          TextOverflow.ellipsis,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: isSelected
                             ? AppColors.textPrimary
@@ -599,8 +618,77 @@ class _HistoryRecordItem extends StatelessWidget {
                     Text(
                       record.displayDate,
                       maxLines: 1,
-                      overflow:
-                          TextOverflow.ellipsis,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// PostgreSQL currently returns saved-record summaries without image bytes.
+// Display only the verified data; do not create placeholder full results.
+class _HistorySummaryItem extends StatelessWidget {
+  final SavedClassificationSummary summary;
+  final VoidCallback onTap;
+
+  const _HistorySummaryItem({required this.summary, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(AppRadius.small),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.small),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(AppRadius.small),
+                  border: Border.all(color: AppColors.disabled),
+                ),
+                child: const Icon(
+                  Icons.history_rounded,
+                  size: 18,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      summary.qualityGrade,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${summary.displayDate} · #${summary.id}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: AppColors.textMuted,
                         fontSize: 11,

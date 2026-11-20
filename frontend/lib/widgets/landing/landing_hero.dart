@@ -4,11 +4,7 @@ import '../../app/theme.dart';
 import 'landing_login_form.dart';
 import 'landing_register_form.dart';
 
-enum LandingHeroView {
-  preview,
-  login,
-  register,
-}
+enum LandingHeroView { preview, login, register }
 
 class LandingHero extends StatelessWidget {
   const LandingHero({
@@ -37,10 +33,7 @@ class LandingHero extends StatelessWidget {
 
   final LandingHeroView authView;
 
-  final void Function(
-    String identifier,
-    String password,
-  ) onLoginSubmitted;
+  final void Function(String identifier, String password) onLoginSubmitted;
 
   final void Function(
     String firstName,
@@ -49,7 +42,8 @@ class LandingHero extends StatelessWidget {
     String contactNumber,
     String password,
     String confirmPassword,
-  ) onRegisterSubmitted;
+  )
+  onRegisterSubmitted;
 
   final VoidCallback onShowLogin;
   final VoidCallback onShowRegister;
@@ -66,8 +60,8 @@ class LandingHero extends StatelessWidget {
         final horizontalPadding = isDesktop
             ? 64.0
             : isMobile
-                ? 20.0
-                : 36.0;
+            ? 20.0
+            : 36.0;
 
         final verticalPadding = isMobile ? 54.0 : 82.0;
 
@@ -77,30 +71,18 @@ class LandingHero extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF061A06),
-                Color(0xFF0B300B),
-                Color(0xFF051505),
-              ],
-              stops: [
-                0.0,
-                0.52,
-                1.0,
-              ],
+              colors: [Color(0xFF061A06), Color(0xFF0B300B), Color(0xFF051505)],
+              stops: [0.0, 0.52, 1.0],
             ),
           ),
           child: Stack(
             children: [
               const Positioned.fill(
-                child: IgnorePointer(
-                  child: _HeroBackgroundDecoration(),
-                ),
+                child: IgnorePointer(child: _HeroBackgroundDecoration()),
               ),
               Center(
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: maxContentWidth,
-                  ),
+                  constraints: BoxConstraints(maxWidth: maxContentWidth),
                   child: Padding(
                     padding: EdgeInsets.fromLTRB(
                       horizontalPadding,
@@ -143,9 +125,7 @@ class LandingHero extends StatelessWidget {
                                 onGetStartedPressed: onGetStartedPressed,
                                 onExploreGuidePressed: onExploreGuidePressed,
                               ),
-                              SizedBox(
-                                height: isMobile ? 48 : 64,
-                              ),
+                              SizedBox(height: isMobile ? 48 : 64),
                               _HeroPanel(
                                 compact: isMobile,
                                 authView: authView,
@@ -199,29 +179,18 @@ class _HeroContent extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: AppColors.surface,
-                borderRadius: BorderRadius.circular(
-                  AppRadius.extraLarge,
-                ),
+                borderRadius: BorderRadius.circular(AppRadius.extraLarge),
                 border: Border.all(
-                  color: AppColors.borderPrimary.withValues(
-                    alpha: 0.45,
-                  ),
+                  color: AppColors.borderPrimary.withValues(alpha: 0.45),
                 ),
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.eco_outlined,
-                    color: AppColors.primary,
-                    size: 18,
-                  ),
+                  Icon(Icons.eco_outlined, color: AppColors.primary, size: 18),
                   SizedBox(width: 8),
                   Text(
                     'AI-POWERED GUSO QUALITY ANALYSIS',
@@ -239,14 +208,10 @@ class _HeroContent extends StatelessWidget {
             Text.rich(
               TextSpan(
                 children: [
-                  const TextSpan(
-                    text: 'Know Your Guso.\n',
-                  ),
+                  const TextSpan(text: 'Know Your Guso.\n'),
                   const TextSpan(
                     text: 'Understand Its Quality.',
-                    style: TextStyle(
-                      color: AppColors.primary,
-                    ),
+                    style: TextStyle(color: AppColors.primary),
                   ),
                 ],
               ),
@@ -260,9 +225,7 @@ class _HeroContent extends StatelessWidget {
             ),
             const SizedBox(height: 26),
             ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: 650,
-              ),
+              constraints: const BoxConstraints(maxWidth: 650),
               child: const Text(
                 'Upload an image of seaweed (guso) and receive structured '
                 'insights about its quality, freshness, image condition, '
@@ -281,21 +244,13 @@ class _HeroContent extends StatelessWidget {
               children: [
                 ElevatedButton.icon(
                   onPressed: onGetStartedPressed,
-                  icon: const Icon(
-                    Icons.arrow_forward_rounded,
-                  ),
-                  label: const Text(
-                    'GET STARTED',
-                  ),
+                  icon: const Icon(Icons.arrow_forward_rounded),
+                  label: const Text('GET STARTED'),
                 ),
                 OutlinedButton.icon(
                   onPressed: onExploreGuidePressed,
-                  icon: const Icon(
-                    Icons.menu_book_outlined,
-                  ),
-                  label: const Text(
-                    'EXPLORE SEAWEED GUIDE',
-                  ),
+                  icon: const Icon(Icons.menu_book_outlined),
+                  label: const Text('EXPLORE SEAWEED GUIDE'),
                 ),
               ],
             ),
@@ -326,10 +281,7 @@ class _HeroContent extends StatelessWidget {
 }
 
 class _HeroMiniFeature extends StatelessWidget {
-  const _HeroMiniFeature({
-    required this.icon,
-    required this.label,
-  });
+  const _HeroMiniFeature({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
@@ -339,18 +291,11 @@ class _HeroMiniFeature extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          color: AppColors.primary,
-          size: 19,
-        ),
+        Icon(icon, color: AppColors.primary, size: 19),
         const SizedBox(width: 8),
         Text(
           label,
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 14,
-          ),
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
         ),
       ],
     );
@@ -372,10 +317,7 @@ class _HeroPanel extends StatelessWidget {
   final bool compact;
   final LandingHeroView authView;
 
-  final void Function(
-    String identifier,
-    String password,
-  ) onLoginSubmitted;
+  final void Function(String identifier, String password) onLoginSubmitted;
 
   final void Function(
     String firstName,
@@ -384,7 +326,8 @@ class _HeroPanel extends StatelessWidget {
     String contactNumber,
     String password,
     String confirmPassword,
-  ) onRegisterSubmitted;
+  )
+  onRegisterSubmitted;
 
   final VoidCallback onShowLogin;
   final VoidCallback onShowRegister;
@@ -399,43 +342,27 @@ class _HeroPanel extends StatelessWidget {
       width: double.infinity,
       height: panelHeight,
       child: AnimatedSwitcher(
-        duration: const Duration(
-          milliseconds: 450,
-        ),
+        duration: const Duration(milliseconds: 450),
         switchInCurve: Curves.easeOutCubic,
         switchOutCurve: Curves.easeInCubic,
-        layoutBuilder: (
-          Widget? currentChild,
-          List<Widget> previousChildren,
-        ) {
+        layoutBuilder: (Widget? currentChild, List<Widget> previousChildren) {
           return Stack(
             fit: StackFit.expand,
-            children: [
-              ...previousChildren,
-              ?currentChild,
-            ],
+            children: [...previousChildren, ?currentChild],
           );
         },
-        transitionBuilder: (
-          Widget child,
-          Animation<double> animation,
-        ) {
-          final slideAnimation = Tween<Offset>(
-            begin: const Offset(0.10, 0),
-            end: Offset.zero,
-          ).animate(
-            CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-            ),
-          );
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          final slideAnimation =
+              Tween<Offset>(
+                begin: const Offset(0.10, 0),
+                end: Offset.zero,
+              ).animate(
+                CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+              );
 
           return FadeTransition(
             opacity: animation,
-            child: SlideTransition(
-              position: slideAnimation,
-              child: child,
-            ),
+            child: SlideTransition(position: slideAnimation, child: child),
           );
         },
         child: _buildCurrentView(),
@@ -446,17 +373,11 @@ class _HeroPanel extends StatelessWidget {
   Widget _buildCurrentView() {
     switch (authView) {
       case LandingHeroView.preview:
-        return const _HeroVisual(
-          key: ValueKey(
-            'landing-preview',
-          ),
-        );
+        return const _HeroVisual(key: ValueKey('landing-preview'));
 
       case LandingHeroView.login:
         return LandingLoginForm(
-          key: const ValueKey(
-            'landing-login',
-          ),
+          key: const ValueKey('landing-login'),
           onLoginPressed: onLoginSubmitted,
           onBackPressed: onBackToPreview,
           onRegisterPressed: onShowRegister,
@@ -465,9 +386,7 @@ class _HeroPanel extends StatelessWidget {
 
       case LandingHeroView.register:
         return LandingRegisterForm(
-          key: const ValueKey(
-            'landing-register',
-          ),
+          key: const ValueKey('landing-register'),
           onRegisterPressed: onRegisterSubmitted,
           onBackPressed: onBackToPreview,
           onLoginPressed: onShowLogin,
@@ -477,9 +396,7 @@ class _HeroPanel extends StatelessWidget {
 }
 
 class _HeroVisual extends StatelessWidget {
-  const _HeroVisual({
-    super.key,
-  });
+  const _HeroVisual({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -488,18 +405,11 @@ class _HeroVisual extends StatelessWidget {
       height: double.infinity,
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(
-          AppRadius.extraLarge,
-        ),
-        border: Border.all(
-          color: AppColors.borderPrimary,
-          width: 1.5,
-        ),
+        borderRadius: BorderRadius.circular(AppRadius.extraLarge),
+        border: Border.all(color: AppColors.borderPrimary, width: 1.5),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(
-          AppRadius.extraLarge - 2,
-        ),
+        borderRadius: BorderRadius.circular(AppRadius.extraLarge - 2),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -507,11 +417,7 @@ class _HeroVisual extends StatelessWidget {
               'images/landing_sample_result.png',
               fit: BoxFit.cover,
               alignment: Alignment.topCenter,
-              errorBuilder: (
-                context,
-                error,
-                stackTrace,
-              ) {
+              errorBuilder: (context, error, stackTrace) {
                 return const Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -546,11 +452,7 @@ class _HeroVisual extends StatelessWidget {
                         Color(0x11001000),
                         Color(0x66001000),
                       ],
-                      stops: [
-                        0.0,
-                        0.68,
-                        1.0,
-                      ],
+                      stops: [0.0, 0.68, 1.0],
                     ),
                   ),
                 ),
@@ -566,16 +468,10 @@ class _HeroVisual extends StatelessWidget {
                   vertical: 14,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceDark.withValues(
-                    alpha: 0.94,
-                  ),
-                  borderRadius: BorderRadius.circular(
-                    AppRadius.large,
-                  ),
+                  color: AppColors.surfaceDark.withValues(alpha: 0.94),
+                  borderRadius: BorderRadius.circular(AppRadius.large),
                   border: Border.all(
-                    color: AppColors.primary.withValues(
-                      alpha: 0.45,
-                    ),
+                    color: AppColors.primary.withValues(alpha: 0.45),
                   ),
                 ),
                 child: const Row(
@@ -622,9 +518,7 @@ class _HeroBackgroundDecoration extends StatelessWidget {
             height: 560,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.primary.withValues(
-                alpha: 0.035,
-              ),
+              color: AppColors.primary.withValues(alpha: 0.035),
             ),
           ),
         ),
@@ -636,9 +530,7 @@ class _HeroBackgroundDecoration extends StatelessWidget {
             height: 700,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.primary.withValues(
-                alpha: 0.045,
-              ),
+              color: AppColors.primary.withValues(alpha: 0.045),
             ),
           ),
         ),
@@ -650,9 +542,7 @@ class _HeroBackgroundDecoration extends StatelessWidget {
             child: Icon(
               Icons.eco_rounded,
               size: 240,
-              color: AppColors.primary.withValues(
-                alpha: 0.028,
-              ),
+              color: AppColors.primary.withValues(alpha: 0.028),
             ),
           ),
         ),
@@ -664,9 +554,7 @@ class _HeroBackgroundDecoration extends StatelessWidget {
             child: Icon(
               Icons.eco_rounded,
               size: 270,
-              color: AppColors.primary.withValues(
-                alpha: 0.022,
-              ),
+              color: AppColors.primary.withValues(alpha: 0.022),
             ),
           ),
         ),
@@ -681,9 +569,7 @@ class _HeroBackgroundDecoration extends StatelessWidget {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(
-                  color: AppColors.primary.withValues(
-                    alpha: 0.045,
-                  ),
+                  color: AppColors.primary.withValues(alpha: 0.045),
                 ),
               ),
             ),

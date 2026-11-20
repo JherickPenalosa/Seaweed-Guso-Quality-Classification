@@ -31,8 +31,8 @@ class LandingSeaweedGuidePreview extends StatelessWidget {
         final horizontalPadding = isDesktop
             ? 64.0
             : isMobile
-                ? 20.0
-                : 36.0;
+            ? 20.0
+            : 36.0;
 
         final verticalPadding = isMobile ? 76.0 : 100.0;
 
@@ -44,31 +44,19 @@ class LandingSeaweedGuidePreview extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topRight,
               end: Alignment.bottomLeft,
-              colors: [
-                Color(0xFF061806),
-                Color(0xFF0B2F0B),
-                Color(0xFF051505),
-              ],
-              stops: [
-                0.0,
-                0.52,
-                1.0,
-              ],
+              colors: [Color(0xFF061806), Color(0xFF0B2F0B), Color(0xFF051505)],
+              stops: [0.0, 0.52, 1.0],
             ),
           ),
           child: Stack(
             children: [
               const Positioned.fill(
-                child: IgnorePointer(
-                  child: _GuideBackground(),
-                ),
+                child: IgnorePointer(child: _GuideBackground()),
               ),
 
               Center(
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: maxContentWidth,
-                  ),
+                  constraints: BoxConstraints(maxWidth: maxContentWidth),
                   child: Padding(
                     padding: EdgeInsets.symmetric(
                       horizontal: horizontalPadding,
@@ -78,9 +66,7 @@ class LandingSeaweedGuidePreview extends StatelessWidget {
                       children: [
                         const _GuideHeader(),
 
-                        SizedBox(
-                          height: isMobile ? 40 : 56,
-                        ),
+                        SizedBox(height: isMobile ? 40 : 56),
 
                         if (guso != null)
                           _FeaturedGusoLayout(
@@ -91,13 +77,10 @@ class LandingSeaweedGuidePreview extends StatelessWidget {
                         else
                           const _FallbackPanel(),
 
-                        SizedBox(
-                          height: isMobile ? 32 : 42,
-                        ),
+                        SizedBox(height: isMobile ? 32 : 42),
 
                         _GuideActionStrip(
-                          onExploreGuidePressed:
-                              onExploreGuidePressed,
+                          onExploreGuidePressed: onExploreGuidePressed,
                           isMobile: isMobile,
                         ),
                       ],
@@ -116,13 +99,12 @@ class LandingSeaweedGuidePreview extends StatelessWidget {
     for (final seaweed in SeaweedData.seaweeds) {
       final searchable =
           '${seaweed.scientificName} '
-          '${seaweed.englishName} '
-          '${seaweed.filipinoName} '
-          '${seaweed.bisayaName}'
+                  '${seaweed.englishName} '
+                  '${seaweed.filipinoName} '
+                  '${seaweed.bisayaName}'
               .toLowerCase();
 
-      if (searchable.contains('guso') ||
-          searchable.contains('kappaphycus')) {
+      if (searchable.contains('guso') || searchable.contains('kappaphycus')) {
         return seaweed;
       }
     }
@@ -139,21 +121,12 @@ class _GuideHeader extends StatelessWidget {
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 9,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
           decoration: BoxDecoration(
-            color: AppColors.surfaceDark.withValues(
-              alpha: 0.82,
-            ),
-            borderRadius: BorderRadius.circular(
-              AppRadius.extraLarge,
-            ),
+            color: AppColors.surfaceDark.withValues(alpha: 0.82),
+            borderRadius: BorderRadius.circular(AppRadius.extraLarge),
             border: Border.all(
-              color: AppColors.primary.withValues(
-                alpha: 0.74,
-              ),
+              color: AppColors.primary.withValues(alpha: 0.74),
             ),
           ),
           child: const Row(
@@ -183,18 +156,12 @@ class _GuideHeader extends StatelessWidget {
         const Text.rich(
           TextSpan(
             children: [
-              TextSpan(
-                text: 'Know Your ',
-              ),
+              TextSpan(text: 'Know Your '),
               TextSpan(
                 text: 'Guso',
-                style: TextStyle(
-                  color: AppColors.primary,
-                ),
+                style: TextStyle(color: AppColors.primary),
               ),
-              TextSpan(
-                text: ' Better',
-              ),
+              TextSpan(text: ' Better'),
             ],
           ),
           textAlign: TextAlign.center,
@@ -210,9 +177,7 @@ class _GuideHeader extends StatelessWidget {
         const SizedBox(height: 18),
 
         ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: 800,
-          ),
+          constraints: const BoxConstraints(maxWidth: 800),
           child: const Text(
             'Explore focused information about guso and learn about '
             'the visible characteristics that support image-based '
@@ -249,21 +214,13 @@ class _FeaturedGusoLayout extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(
-              flex: 11,
-              child: _GusoImagePanel(
-                seaweed: seaweed,
-              ),
-            ),
+            Expanded(flex: 11, child: _GusoImagePanel(seaweed: seaweed)),
 
             const SizedBox(width: 34),
 
             Expanded(
               flex: 9,
-              child: _GusoInformationPanel(
-                seaweed: seaweed,
-                fillHeight: true,
-              ),
+              child: _GusoInformationPanel(seaweed: seaweed, fillHeight: true),
             ),
           ],
         ),
@@ -275,26 +232,19 @@ class _FeaturedGusoLayout extends StatelessWidget {
       children: [
         SizedBox(
           height: isMobile ? 290 : 360,
-          child: _GusoImagePanel(
-            seaweed: seaweed,
-          ),
+          child: _GusoImagePanel(seaweed: seaweed),
         ),
 
         const SizedBox(height: 24),
 
-        _GusoInformationPanel(
-          seaweed: seaweed,
-          fillHeight: false,
-        ),
+        _GusoInformationPanel(seaweed: seaweed, fillHeight: false),
       ],
     );
   }
 }
 
 class _GusoImagePanel extends StatelessWidget {
-  const _GusoImagePanel({
-    required this.seaweed,
-  });
+  const _GusoImagePanel({required this.seaweed});
 
   final SeaweedInfo seaweed;
 
@@ -304,29 +254,21 @@ class _GusoImagePanel extends StatelessWidget {
       width: double.infinity,
       height: double.infinity,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(
-          AppRadius.extraLarge,
-        ),
+        borderRadius: BorderRadius.circular(AppRadius.extraLarge),
         border: Border.all(
-          color: AppColors.primary.withValues(
-            alpha: 0.76,
-          ),
+          color: AppColors.primary.withValues(alpha: 0.76),
           width: 1.3,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(
-              alpha: 0.08,
-            ),
+            color: AppColors.primary.withValues(alpha: 0.08),
             blurRadius: 26,
             offset: const Offset(0, 10),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(
-          AppRadius.extraLarge - 1,
-        ),
+        borderRadius: BorderRadius.circular(AppRadius.extraLarge - 1),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -334,11 +276,7 @@ class _GusoImagePanel extends StatelessWidget {
               seaweed.imagePath,
               fit: BoxFit.cover,
               alignment: Alignment.center,
-              errorBuilder: (
-                context,
-                error,
-                stackTrace,
-              ) {
+              errorBuilder: (context, error, stackTrace) {
                 return const _FallbackImage();
               },
             ),
@@ -353,11 +291,7 @@ class _GusoImagePanel extends StatelessWidget {
                     Color(0x33001000),
                     Color(0xD9001000),
                   ],
-                  stops: [
-                    0.0,
-                    0.55,
-                    1.0,
-                  ],
+                  stops: [0.0, 0.55, 1.0],
                 ),
               ),
             ),
@@ -371,16 +305,10 @@ class _GusoImagePanel extends StatelessWidget {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.background.withValues(
-                    alpha: 0.88,
-                  ),
-                  borderRadius: BorderRadius.circular(
-                    50,
-                  ),
+                  color: AppColors.background.withValues(alpha: 0.88),
+                  borderRadius: BorderRadius.circular(50),
                   border: Border.all(
-                    color: AppColors.primary.withValues(
-                      alpha: 0.72,
-                    ),
+                    color: AppColors.primary.withValues(alpha: 0.72),
                   ),
                 ),
                 child: const Row(
@@ -412,16 +340,10 @@ class _GusoImagePanel extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceDark.withValues(
-                    alpha: 0.90,
-                  ),
-                  borderRadius: BorderRadius.circular(
-                    AppRadius.large,
-                  ),
+                  color: AppColors.surfaceDark.withValues(alpha: 0.90),
+                  borderRadius: BorderRadius.circular(AppRadius.large),
                   border: Border.all(
-                    color: AppColors.primary.withValues(
-                      alpha: 0.35,
-                    ),
+                    color: AppColors.primary.withValues(alpha: 0.35),
                   ),
                 ),
                 child: const Row(
@@ -436,17 +358,14 @@ class _GusoImagePanel extends StatelessWidget {
 
                     Expanded(
                       child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Image-Based Guso Learning',
                             style: TextStyle(
-                              color:
-                                  AppColors.textPrimary,
+                              color: AppColors.textPrimary,
                               fontSize: 15,
-                              fontWeight:
-                                  FontWeight.w800,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
 
@@ -455,8 +374,7 @@ class _GusoImagePanel extends StatelessWidget {
                           Text(
                             'Learn what visible characteristics matter when assessing guso quality.',
                             style: TextStyle(
-                              color: AppColors
-                                  .textSecondary,
+                              color: AppColors.textSecondary,
                               fontSize: 13,
                               height: 1.4,
                             ),
@@ -491,42 +409,26 @@ class _GusoInformationPanel extends StatelessWidget {
       height: fillHeight ? double.infinity : null,
       padding: const EdgeInsets.all(30),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(
-          AppRadius.extraLarge,
-        ),
-        border: Border.all(
-          color: AppColors.primary.withValues(
-            alpha: 0.48,
-          ),
-        ),
+        borderRadius: BorderRadius.circular(AppRadius.extraLarge),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.48)),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF10350C),
-            Color(0xFF092507),
-          ],
+          colors: [Color(0xFF10350C), Color(0xFF092507)],
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(
-              alpha: 0.055,
-            ),
+            color: AppColors.primary.withValues(alpha: 0.055),
             blurRadius: 20,
           ),
         ],
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Row(
             children: [
-              Icon(
-                Icons.verified_outlined,
-                color: AppColors.primary,
-                size: 21,
-              ),
+              Icon(Icons.verified_outlined, color: AppColors.primary, size: 21),
 
               SizedBox(width: 9),
 
@@ -585,63 +487,36 @@ class _GusoInformationPanel extends StatelessWidget {
             spacing: 10,
             runSpacing: 10,
             children: [
-              _GuideChip(
-                icon: Icons.palette_outlined,
-                label: 'Color',
-              ),
-              _GuideChip(
-                icon: Icons.texture_outlined,
-                label: 'Texture',
-              ),
-              _GuideChip(
-                icon: Icons.eco_outlined,
-                label: 'Freshness',
-              ),
-              _GuideChip(
-                icon: Icons.image_outlined,
-                label: 'Image Condition',
-              ),
+              _GuideChip(icon: Icons.palette_outlined, label: 'Color'),
+              _GuideChip(icon: Icons.texture_outlined, label: 'Texture'),
+              _GuideChip(icon: Icons.eco_outlined, label: 'Freshness'),
+              _GuideChip(icon: Icons.image_outlined, label: 'Image Condition'),
             ],
           ),
 
-          if (fillHeight)
-            const Spacer()
-          else
-            const SizedBox(height: 30),
+          if (fillHeight) const Spacer() else const SizedBox(height: 30),
 
           OutlinedButton.icon(
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) {
-                    return SeaweedDetailScreen(
-                      seaweed: seaweed,
-                    );
+                    return SeaweedDetailScreen(seaweed: seaweed);
                   },
                 ),
               );
             },
             style: OutlinedButton.styleFrom(
-              foregroundColor:
-                  AppColors.textPrimary,
+              foregroundColor: AppColors.textPrimary,
               side: BorderSide(
-                color: AppColors.primary.withValues(
-                  alpha: 0.72,
-                ),
+                color: AppColors.primary.withValues(alpha: 0.72),
               ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 22,
-                vertical: 16,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
             ),
-            icon: const Icon(
-              Icons.arrow_forward_rounded,
-            ),
+            icon: const Icon(Icons.arrow_forward_rounded),
             label: const Text(
               'VIEW GUSO DETAILS',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -663,10 +538,7 @@ class _GusoInformationPanel extends StatelessWidget {
 }
 
 class _GuideChip extends StatelessWidget {
-  const _GuideChip({
-    required this.icon,
-    required this.label,
-  });
+  const _GuideChip({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
@@ -674,31 +546,16 @@ class _GuideChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 9,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        color: AppColors.surfaceDark.withValues(
-          alpha: 0.75,
-        ),
-        borderRadius: BorderRadius.circular(
-          50,
-        ),
-        border: Border.all(
-          color: AppColors.primary.withValues(
-            alpha: 0.35,
-          ),
-        ),
+        color: AppColors.surfaceDark.withValues(alpha: 0.75),
+        borderRadius: BorderRadius.circular(50),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.35)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            color: AppColors.primary,
-            size: 16,
-          ),
+          Icon(icon, color: AppColors.primary, size: 16),
 
           const SizedBox(width: 7),
 
@@ -734,22 +591,12 @@ class _GuideActionStrip extends StatelessWidget {
         vertical: isMobile ? 22 : 24,
       ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(
-          AppRadius.large,
-        ),
-        border: Border.all(
-          color: AppColors.primary.withValues(
-            alpha: 0.60,
-          ),
-        ),
+        borderRadius: BorderRadius.circular(AppRadius.large),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.60)),
         gradient: const LinearGradient(
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
-          colors: [
-            Color(0xFF0B2608),
-            Color(0xFF143D0F),
-            Color(0xFF092107),
-          ],
+          colors: [Color(0xFF0B2608), Color(0xFF143D0F), Color(0xFF092107)],
         ),
       ),
       child: isMobile
@@ -775,10 +622,7 @@ class _GuideActionStrip extends StatelessWidget {
 
                 const SizedBox(height: 18),
 
-                _ExploreButton(
-                  onPressed:
-                      onExploreGuidePressed,
-                ),
+                _ExploreButton(onPressed: onExploreGuidePressed),
               ],
             )
           : Row(
@@ -793,17 +637,14 @@ class _GuideActionStrip extends StatelessWidget {
 
                 const Expanded(
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Continue Exploring Guso',
                         style: TextStyle(
-                          color:
-                              AppColors.textPrimary,
+                          color: AppColors.textPrimary,
                           fontSize: 18,
-                          fontWeight:
-                              FontWeight.w800,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
 
@@ -812,8 +653,7 @@ class _GuideActionStrip extends StatelessWidget {
                       Text(
                         'Open the complete guide for focused guso information and educational details.',
                         style: TextStyle(
-                          color: AppColors
-                              .textSecondary,
+                          color: AppColors.textSecondary,
                           fontSize: 14,
                           height: 1.45,
                         ),
@@ -824,10 +664,7 @@ class _GuideActionStrip extends StatelessWidget {
 
                 const SizedBox(width: 24),
 
-                _ExploreButton(
-                  onPressed:
-                      onExploreGuidePressed,
-                ),
+                _ExploreButton(onPressed: onExploreGuidePressed),
               ],
             ),
     );
@@ -835,9 +672,7 @@ class _GuideActionStrip extends StatelessWidget {
 }
 
 class _ExploreButton extends StatelessWidget {
-  const _ExploreButton({
-    required this.onPressed,
-  });
+  const _ExploreButton({required this.onPressed});
 
   final VoidCallback onPressed;
 
@@ -846,52 +681,32 @@ class _ExploreButton extends StatelessWidget {
     return ElevatedButton.icon(
       onPressed: onPressed,
       style: ButtonStyle(
-        elevation:
-            const WidgetStatePropertyAll(0),
+        elevation: const WidgetStatePropertyAll(0),
 
-        backgroundColor:
-            WidgetStateProperty.resolveWith<Color>(
-          (states) {
-            if (states.contains(
-              WidgetState.hovered,
-            )) {
-              return Colors.white;
-            }
+        backgroundColor: WidgetStateProperty.resolveWith<Color>((states) {
+          if (states.contains(WidgetState.hovered)) {
+            return Colors.white;
+          }
 
-            return AppColors.primary;
-          },
+          return AppColors.primary;
+        }),
+
+        foregroundColor: const WidgetStatePropertyAll(Colors.black),
+
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         ),
 
-        foregroundColor:
-            const WidgetStatePropertyAll(
-          Colors.black,
-        ),
-
-        padding:
-            const WidgetStatePropertyAll(
-          EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 16,
-          ),
-        ),
-
-        shape:
-            WidgetStatePropertyAll(
+        shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(
-              AppRadius.medium,
-            ),
+            borderRadius: BorderRadius.circular(AppRadius.medium),
           ),
         ),
       ),
-      icon: const Icon(
-        Icons.arrow_forward_rounded,
-      ),
+      icon: const Icon(Icons.arrow_forward_rounded),
       label: const Text(
         'EXPLORE SEAWEED GUIDE',
-        style: TextStyle(
-          fontWeight: FontWeight.bold,
-        ),
+        style: TextStyle(fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -907,19 +722,13 @@ class _FallbackImage extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF164515),
-            Color(0xFF092608),
-            Color(0xFF041304),
-          ],
+          colors: [Color(0xFF164515), Color(0xFF092608), Color(0xFF041304)],
         ),
       ),
       child: Center(
         child: Icon(
           Icons.eco_rounded,
-          color: AppColors.primary.withValues(
-            alpha: 0.24,
-          ),
+          color: AppColors.primary.withValues(alpha: 0.24),
           size: 140,
         ),
       ),
@@ -934,37 +743,21 @@ class _FallbackPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(
-        minHeight: 300,
-      ),
+      constraints: const BoxConstraints(minHeight: 300),
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(
-          AppRadius.extraLarge,
-        ),
-        border: Border.all(
-          color: AppColors.primary.withValues(
-            alpha: 0.50,
-          ),
-        ),
+        borderRadius: BorderRadius.circular(AppRadius.extraLarge),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.50)),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF10350C),
-            Color(0xFF092507),
-          ],
+          colors: [Color(0xFF10350C), Color(0xFF092507)],
         ),
       ),
       child: const Column(
-        mainAxisAlignment:
-            MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.eco_outlined,
-            color: AppColors.primary,
-            size: 50,
-          ),
+          Icon(Icons.eco_outlined, color: AppColors.primary, size: 50),
 
           SizedBox(height: 18),
 
@@ -982,10 +775,7 @@ class _FallbackPanel extends StatelessWidget {
           Text(
             'Focused Guso information will appear here.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 15,
-            ),
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
           ),
         ],
       ),
@@ -1008,9 +798,7 @@ class _GuideBackground extends StatelessWidget {
             height: 540,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.primary.withValues(
-                alpha: 0.032,
-              ),
+              color: AppColors.primary.withValues(alpha: 0.032),
             ),
           ),
         ),
@@ -1023,9 +811,7 @@ class _GuideBackground extends StatelessWidget {
             height: 700,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.primary.withValues(
-                alpha: 0.045,
-              ),
+              color: AppColors.primary.withValues(alpha: 0.045),
             ),
           ),
         ),
@@ -1038,9 +824,7 @@ class _GuideBackground extends StatelessWidget {
             child: Icon(
               Icons.eco_rounded,
               size: 240,
-              color: AppColors.primary.withValues(
-                alpha: 0.025,
-              ),
+              color: AppColors.primary.withValues(alpha: 0.025),
             ),
           ),
         ),
@@ -1053,9 +837,7 @@ class _GuideBackground extends StatelessWidget {
             child: Icon(
               Icons.eco_rounded,
               size: 220,
-              color: AppColors.primary.withValues(
-                alpha: 0.032,
-              ),
+              color: AppColors.primary.withValues(alpha: 0.032),
             ),
           ),
         ),

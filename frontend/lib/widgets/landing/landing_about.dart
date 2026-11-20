@@ -28,8 +28,8 @@ class LandingAbout extends StatelessWidget {
         final horizontalPadding = isDesktop
             ? 64.0
             : isMobile
-                ? 20.0
-                : 36.0;
+            ? 20.0
+            : 36.0;
 
         final verticalPadding = isMobile ? 72.0 : 96.0;
 
@@ -41,31 +41,19 @@ class LandingAbout extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Color(0xFF071D07),
-                Color(0xFF0B2F0B),
-                Color(0xFF061806),
-              ],
-              stops: [
-                0.0,
-                0.52,
-                1.0,
-              ],
+              colors: [Color(0xFF071D07), Color(0xFF0B2F0B), Color(0xFF061806)],
+              stops: [0.0, 0.52, 1.0],
             ),
           ),
           child: Stack(
             children: [
               const Positioned.fill(
-                child: IgnorePointer(
-                  child: _DecorativeBackground(),
-                ),
+                child: IgnorePointer(child: _DecorativeBackground()),
               ),
 
               Center(
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: maxContentWidth,
-                  ),
+                  constraints: BoxConstraints(maxWidth: maxContentWidth),
                   child: Padding(
                     padding: EdgeInsets.symmetric(
                       horizontal: horizontalPadding,
@@ -74,22 +62,13 @@ class LandingAbout extends StatelessWidget {
                     child: Column(
                       children: [
                         if (isDesktop)
-                          _DesktopLayout(
-                            guso: guso,
-                          )
+                          _DesktopLayout(guso: guso)
                         else
-                          _StackedLayout(
-                            guso: guso,
-                            isMobile: isMobile,
-                          ),
+                          _StackedLayout(guso: guso, isMobile: isMobile),
 
-                        SizedBox(
-                          height: isMobile ? 34 : 44,
-                        ),
+                        SizedBox(height: isMobile ? 34 : 44),
 
-                        _ResearchStrip(
-                          isMobile: isMobile,
-                        ),
+                        _ResearchStrip(isMobile: isMobile),
                       ],
                     ),
                   ),
@@ -106,13 +85,12 @@ class LandingAbout extends StatelessWidget {
     for (final seaweed in SeaweedData.seaweeds) {
       final searchable =
           '${seaweed.scientificName} '
-          '${seaweed.englishName} '
-          '${seaweed.filipinoName} '
-          '${seaweed.bisayaName}'
+                  '${seaweed.englishName} '
+                  '${seaweed.filipinoName} '
+                  '${seaweed.bisayaName}'
               .toLowerCase();
 
-      if (searchable.contains('guso') ||
-          searchable.contains('kappaphycus')) {
+      if (searchable.contains('guso') || searchable.contains('kappaphycus')) {
         return seaweed;
       }
     }
@@ -122,9 +100,7 @@ class LandingAbout extends StatelessWidget {
 }
 
 class _DesktopLayout extends StatelessWidget {
-  const _DesktopLayout({
-    required this.guso,
-  });
+  const _DesktopLayout({required this.guso});
 
   final SeaweedInfo? guso;
 
@@ -133,29 +109,18 @@ class _DesktopLayout extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          flex: 10,
-          child: _AboutLeftColumn(
-            guso: guso,
-          ),
-        ),
+        Expanded(flex: 10, child: _AboutLeftColumn(guso: guso)),
 
         const SizedBox(width: 48),
 
-        const Expanded(
-          flex: 11,
-          child: _FeatureGrid(),
-        ),
+        const Expanded(flex: 11, child: _FeatureGrid()),
       ],
     );
   }
 }
 
 class _StackedLayout extends StatelessWidget {
-  const _StackedLayout({
-    required this.guso,
-    required this.isMobile,
-  });
+  const _StackedLayout({required this.guso, required this.isMobile});
 
   final SeaweedInfo? guso;
   final bool isMobile;
@@ -165,13 +130,9 @@ class _StackedLayout extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _AboutLeftColumn(
-          guso: guso,
-        ),
+        _AboutLeftColumn(guso: guso),
 
-        SizedBox(
-          height: isMobile ? 38 : 48,
-        ),
+        SizedBox(height: isMobile ? 38 : 48),
 
         const _FeatureGrid(),
       ],
@@ -180,9 +141,7 @@ class _StackedLayout extends StatelessWidget {
 }
 
 class _AboutLeftColumn extends StatelessWidget {
-  const _AboutLeftColumn({
-    required this.guso,
-  });
+  const _AboutLeftColumn({required this.guso});
 
   final SeaweedInfo? guso;
 
@@ -232,9 +191,7 @@ class _AboutLeftColumn extends StatelessWidget {
 
         const SizedBox(height: 26),
 
-        _GusoImagePanel(
-          guso: guso,
-        ),
+        _GusoImagePanel(guso: guso),
       ],
     );
   }
@@ -246,31 +203,16 @@ class _AboutBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 9,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
       decoration: BoxDecoration(
-        color: AppColors.surfaceDark.withValues(
-          alpha: 0.82,
-        ),
-        borderRadius: BorderRadius.circular(
-          AppRadius.extraLarge,
-        ),
-        border: Border.all(
-          color: AppColors.primary.withValues(
-            alpha: 0.78,
-          ),
-        ),
+        color: AppColors.surfaceDark.withValues(alpha: 0.82),
+        borderRadius: BorderRadius.circular(AppRadius.extraLarge),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.78)),
       ),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.info_outline_rounded,
-            color: AppColors.primary,
-            size: 18,
-          ),
+          Icon(Icons.info_outline_rounded, color: AppColors.primary, size: 18),
           SizedBox(width: 8),
           Text(
             'ABOUT GUSO',
@@ -288,9 +230,7 @@ class _AboutBadge extends StatelessWidget {
 }
 
 class _GusoImagePanel extends StatelessWidget {
-  const _GusoImagePanel({
-    required this.guso,
-  });
+  const _GusoImagePanel({required this.guso});
 
   final SeaweedInfo? guso;
 
@@ -300,29 +240,21 @@ class _GusoImagePanel extends StatelessWidget {
       height: 260,
       width: double.infinity,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(
-          AppRadius.large,
-        ),
+        borderRadius: BorderRadius.circular(AppRadius.large),
         border: Border.all(
-          color: AppColors.primary.withValues(
-            alpha: 0.78,
-          ),
+          color: AppColors.primary.withValues(alpha: 0.78),
           width: 1.3,
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withValues(
-              alpha: 0.08,
-            ),
+            color: AppColors.primary.withValues(alpha: 0.08),
             blurRadius: 24,
             offset: const Offset(0, 10),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(
-          AppRadius.large - 1,
-        ),
+        borderRadius: BorderRadius.circular(AppRadius.large - 1),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -330,11 +262,7 @@ class _GusoImagePanel extends StatelessWidget {
               'assets/images/landing/guso_about_banner.png',
               fit: BoxFit.cover,
               alignment: Alignment.center,
-              errorBuilder: (
-                context,
-                error,
-                stackTrace,
-              ) {
+              errorBuilder: (context, error, stackTrace) {
                 return const _FallbackImage();
               },
             ),
@@ -349,11 +277,7 @@ class _GusoImagePanel extends StatelessWidget {
                     Color(0x44001000),
                     Color(0xCC001000),
                   ],
-                  stops: [
-                    0.0,
-                    0.58,
-                    1.0,
-                  ],
+                  stops: [0.0, 0.58, 1.0],
                 ),
               ),
             ),
@@ -367,16 +291,10 @@ class _GusoImagePanel extends StatelessWidget {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.background.withValues(
-                    alpha: 0.86,
-                  ),
-                  borderRadius: BorderRadius.circular(
-                    50,
-                  ),
+                  color: AppColors.background.withValues(alpha: 0.86),
+                  borderRadius: BorderRadius.circular(50),
                   border: Border.all(
-                    color: AppColors.primary.withValues(
-                      alpha: 0.50,
-                    ),
+                    color: AppColors.primary.withValues(alpha: 0.50),
                     width: 1.3,
                   ),
                 ),
@@ -447,20 +365,14 @@ class _FallbackImage extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF154A14),
-            Color(0xFF0A2509),
-            Color(0xFF041304),
-          ],
+          colors: [Color(0xFF154A14), Color(0xFF0A2509), Color(0xFF041304)],
         ),
       ),
       child: Center(
         child: Icon(
           Icons.eco_rounded,
           size: 140,
-          color: AppColors.primary.withValues(
-            alpha: 0.22,
-          ),
+          color: AppColors.primary.withValues(alpha: 0.22),
         ),
       ),
     );
@@ -474,8 +386,7 @@ class _FeatureGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final narrow =
-            constraints.maxWidth < 520;
+        final narrow = constraints.maxWidth < 520;
 
         if (narrow) {
           return const Column(
@@ -483,57 +394,46 @@ class _FeatureGrid extends StatelessWidget {
               _FeatureCard(
                 icon: Icons.image_search_outlined,
                 title: 'Image-Based Analysis',
-                description:
-                    'Uses a guso image as the basis for structured quality assessment.',
+                description: 'Uses a guso image as the basis for structured quality assessment.',
               ),
               SizedBox(height: 18),
               _FeatureCard(
                 icon: Icons.eco_outlined,
                 title: 'Quality & Freshness',
-                description:
-                    'Highlights key visible indicators related to guso quality and freshness.',
+                description: 'Highlights key visible indicators related to guso quality and freshness.',
               ),
               SizedBox(height: 18),
               _FeatureCard(
                 icon: Icons.visibility_outlined,
                 title: 'Observable Quality',
-                description:
-                    'Reviews traits such as color, texture, image condition, and visible features.',
+                description: 'Reviews traits such as color, texture, image condition, and visible features.',
               ),
               SizedBox(height: 18),
               _FeatureCard(
                 icon: Icons.menu_book_outlined,
                 title: 'Seaweed Guide',
-                description:
-                    'Provides focused image-based information for learning more about guso.',
+                description: 'Provides focused image-based information for learning more about guso.',
               ),
             ],
           );
         }
 
         return const Row(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: Column(
                 children: [
                   _FeatureCard(
-                    icon:
-                        Icons.image_search_outlined,
-                    title:
-                        'Image-Based Analysis',
-                    description:
-                        'Uses a guso image as the basis for structured quality assessment.',
+                    icon: Icons.image_search_outlined,
+                    title: 'Image-Based Analysis',
+                    description: 'Uses a guso image as the basis for structured quality assessment.',
                   ),
                   SizedBox(height: 22),
                   _FeatureCard(
-                    icon:
-                        Icons.visibility_outlined,
-                    title:
-                        'Observable Quality',
-                    description:
-                        'Reviews traits such as color, texture, image condition, and visible features.',
+                    icon: Icons.visibility_outlined,
+                    title: 'Observable Quality',
+                    description: 'Reviews traits such as color, texture, image condition, and visible features.',
                   ),
                 ],
               ),
@@ -545,21 +445,15 @@ class _FeatureGrid extends StatelessWidget {
               child: Column(
                 children: [
                   _FeatureCard(
-                    icon:
-                        Icons.eco_outlined,
-                    title:
-                        'Quality & Freshness',
-                    description:
-                        'Highlights key visible indicators related to guso quality and freshness.',
+                    icon: Icons.eco_outlined,
+                    title: 'Quality & Freshness',
+                    description: 'Highlights key visible indicators related to guso quality and freshness.',
                   ),
                   SizedBox(height: 22),
                   _FeatureCard(
-                    icon:
-                        Icons.menu_book_outlined,
-                    title:
-                        'Seaweed Guide',
-                    description:
-                        'Provides focused image-based information for learning more about guso.',
+                    icon: Icons.menu_book_outlined,
+                    title: 'Seaweed Guide',
+                    description: 'Provides focused image-based information for learning more about guso.',
                   ),
                 ],
               ),
@@ -583,8 +477,7 @@ class _FeatureCard extends StatefulWidget {
   final String description;
 
   @override
-  State<_FeatureCard> createState() =>
-      _FeatureCardState();
+  State<_FeatureCard> createState() => _FeatureCardState();
 }
 
 class _FeatureCardState extends State<_FeatureCard> {
@@ -604,52 +497,30 @@ class _FeatureCardState extends State<_FeatureCard> {
         });
       },
       child: AnimatedContainer(
-        duration: const Duration(
-          milliseconds: 180,
-        ),
+        duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
-        constraints: const BoxConstraints(
-          minHeight: 250,
-        ),
+        constraints: const BoxConstraints(minHeight: 250),
         padding: const EdgeInsets.all(28),
-        transform: Matrix4.translationValues(
-          0,
-          _hovered ? -4 : 0,
-          0,
-        ),
+        transform: Matrix4.translationValues(0, _hovered ? -4 : 0, 0),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(
-            AppRadius.large,
-          ),
+          borderRadius: BorderRadius.circular(AppRadius.large),
           border: Border.all(
             color: _hovered
-                ? AppColors.primary.withValues(
-                    alpha: 0.9,
-                  )
-                : AppColors.textMuted.withValues(
-                    alpha: 0.48,
-                  ),
+                ? AppColors.primary.withValues(alpha: 0.9)
+                : AppColors.textMuted.withValues(alpha: 0.48),
             width: _hovered ? 1.4 : 1,
           ),
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: _hovered
-                ? const [
-                    Color(0xFF123A0F),
-                    Color(0xFF0A2508),
-                  ]
-                : const [
-                    Color(0xFF0D2B09),
-                    Color(0xFF082006),
-                  ],
+                ? const [Color(0xFF123A0F), Color(0xFF0A2508)]
+                : const [Color(0xFF0D2B09), Color(0xFF082006)],
           ),
           boxShadow: _hovered
               ? [
                   BoxShadow(
-                    color: AppColors.primary.withValues(
-                      alpha: 0.09,
-                    ),
+                    color: AppColors.primary.withValues(alpha: 0.09),
                     blurRadius: 26,
                     offset: const Offset(0, 8),
                   ),
@@ -664,31 +535,21 @@ class _FeatureCardState extends State<_FeatureCard> {
               child: Icon(
                 Icons.eco_rounded,
                 size: 150,
-                color: AppColors.primary.withValues(
-                  alpha: 0.035,
-                ),
+                color: AppColors.primary.withValues(alpha: 0.035),
               ),
             ),
 
             Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
                   width: 58,
                   height: 58,
                   decoration: BoxDecoration(
                     color: AppColors.primaryDark,
-                    borderRadius:
-                        BorderRadius.circular(
-                      AppRadius.medium,
-                    ),
+                    borderRadius: BorderRadius.circular(AppRadius.medium),
                   ),
-                  child: Icon(
-                    widget.icon,
-                    color: AppColors.primary,
-                    size: 29,
-                  ),
+                  child: Icon(widget.icon, color: AppColors.primary, size: 29),
                 ),
 
                 const SizedBox(height: 24),
@@ -723,9 +584,7 @@ class _FeatureCardState extends State<_FeatureCard> {
 }
 
 class _ResearchStrip extends StatelessWidget {
-  const _ResearchStrip({
-    required this.isMobile,
-  });
+  const _ResearchStrip({required this.isMobile});
 
   final bool isMobile;
 
@@ -738,28 +597,17 @@ class _ResearchStrip extends StatelessWidget {
         vertical: isMobile ? 22 : 24,
       ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(
-          AppRadius.large,
-        ),
-        border: Border.all(
-          color: AppColors.primary.withValues(
-            alpha: 0.62,
-          ),
-        ),
+        borderRadius: BorderRadius.circular(AppRadius.large),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.62)),
         gradient: const LinearGradient(
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
-          colors: [
-            Color(0xFF0B2608),
-            Color(0xFF123B0F),
-            Color(0xFF092107),
-          ],
+          colors: [Color(0xFF0B2608), Color(0xFF123B0F), Color(0xFF092107)],
         ),
       ),
       child: isMobile
           ? const Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(
                   Icons.science_outlined,
@@ -782,16 +630,12 @@ class _ResearchStrip extends StatelessWidget {
 
                 SizedBox(
                   height: 52,
-                  child: VerticalDivider(
-                    color: AppColors.disabled,
-                  ),
+                  child: VerticalDivider(color: AppColors.disabled),
                 ),
 
                 SizedBox(width: 26),
 
-                Expanded(
-                  child: _ResearchCopy(),
-                ),
+                Expanded(child: _ResearchCopy()),
               ],
             ),
     );
@@ -804,8 +648,7 @@ class _ResearchCopy extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Built for research and learning.',
@@ -847,9 +690,7 @@ class _DecorativeBackground extends StatelessWidget {
             height: 520,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.primary.withValues(
-                alpha: 0.035,
-              ),
+              color: AppColors.primary.withValues(alpha: 0.035),
             ),
           ),
         ),
@@ -862,9 +703,7 @@ class _DecorativeBackground extends StatelessWidget {
             height: 660,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.primary.withValues(
-                alpha: 0.05,
-              ),
+              color: AppColors.primary.withValues(alpha: 0.05),
             ),
           ),
         ),
@@ -878,12 +717,8 @@ class _DecorativeBackground extends StatelessWidget {
               width: 360,
               height: 90,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(
-                  999,
-                ),
-                color: AppColors.primary.withValues(
-                  alpha: 0.025,
-                ),
+                borderRadius: BorderRadius.circular(999),
+                color: AppColors.primary.withValues(alpha: 0.025),
               ),
             ),
           ),
